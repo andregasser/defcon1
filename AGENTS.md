@@ -24,7 +24,7 @@ npm install
 | Command | Purpose |
 | --- | --- |
 | `npm run dev` | Vite (`:5173`) + API server together, hot reload — use this while coding |
-| `npm test` | Vitest once (92 tests) |
+| `npm test` | Vitest once (93 tests) |
 | `npm run test:watch` | Vitest in watch mode |
 | `npm run typecheck` | `tsc -b --noEmit`, strict |
 | `npm run build` | `tsc -b && vite build` into `dist/` |
@@ -182,6 +182,16 @@ Compact density makes cards tighter (padding, line height), never shorter than
 their content; there is deliberately no `white-space: nowrap` on `.card-title` in
 any density. `logic.test.ts` asserts this directly against `index.css`, so if you
 restyle those rules, keep the promise rather than the test.
+
+Wrapping alone is not enough, and this part is subtle: `.cell` is a column flex
+container with a `max-height`, so its children shrink by default. The usual
+protection — `min-height: auto` resolving to the content size — **does not apply
+to an item whose `overflow` is not `visible`**, and `.card` needs
+`overflow: hidden` to clip its DEFCON stripe to the rounded corners. Cards were
+therefore squashed as soon as a cell filled up, and the last line of a wrapped
+title disappeared. `.cell > * { flex: 0 0 auto }` is what keeps them at their own
+height; the cell scrolls instead. Do not remove it, and do not "simplify" it to
+`.card` only — quick add and the hint line have the same problem.
 
 The board is **one flat CSS grid**: a lane header and its five cells are
 siblings, not nested in a per-lane wrapper. Tests walk `nextElementSibling` to

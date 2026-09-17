@@ -631,6 +631,17 @@ describe('text on the board is never truncated', () => {
     })
   }
 
+  it('lets a card keep its full height inside a capped cell', () => {
+    // The cell caps its height and lays its children out with flex, so they would
+    // shrink by default — and because the card sets `overflow: hidden` for its
+    // stripe, `min-height: auto` does not save it. A wrapped title lost its last
+    // line that way. Without this rule the bug is invisible until a cell fills up.
+    const cell = cssBlock(css, '.cell')
+    assert.ok(cell.includes('display: flex'), 'the cell is no longer a flex container')
+    const children = cssBlock(css, '.cell > *')
+    assert.match(children, /flex:\s*0 0 auto|flex-shrink:\s*0/)
+  })
+
   it('has no density override that clamps a card title', () => {
     // Compact density used to squeeze titles onto one line with an ellipsis.
     // Any rule that mentions .card-title has to leave the wrapping alone.

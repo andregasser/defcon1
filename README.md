@@ -25,7 +25,7 @@ the same time.
 | `npm start` | Build + server (the normal way) |
 | `npm run serve` | Server only, without rebuilding |
 | `npm run dev` | Vite dev server (`:5173`) + API server, with hot reload |
-| `npm test` | Vitest, 92 tests |
+| `npm test` | Vitest, 93 tests |
 | `npm run typecheck` | Check TypeScript strict |
 
 Environment variables: `DEFCON1_PORT` (default `7777`), `DEFCON1_HOST` (default
@@ -123,8 +123,9 @@ That is what the UI is built for:
   the deck nor in the lane. Long titles and descriptions wrap; nothing is cut
   off with an ellipsis.
 * **Nothing on a card is cut off either**: a task title wraps over as many lines
-  as it needs, in compact density too. Compact makes cards tighter, not their
-  text shorter.
+  as it needs, in compact density too, and the card grows to fit them — a full
+  column scrolls instead of squashing its cards. Compact makes cards tighter, not
+  their text shorter.
 * **Deadline per project**: calendar date plus countdown, in the lane and on the
   tile. Lanes are sorted by deadline by default, the most urgent on top.
 * **Sticky column heads and lane rail**: while scrolling you can still see where
