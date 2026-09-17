@@ -2,7 +2,7 @@ import { memo } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { DEFCON_BY_LEVEL, STATUS_BY_ID } from '../constants'
-import { staleDays } from '../lib/board'
+import { checklistProgress, staleDays } from '../lib/board'
 import { vars } from '../lib/css'
 import { dateTone, formatDateShort } from '../lib/date'
 import type { Task } from '../types'
@@ -27,6 +27,7 @@ export const TaskCard = memo(function TaskCard({ task, selected, onSelect, onOpe
 
   const dueTone = dateTone(task.due, 3)
   const stale = staleDays(task)
+  const steps = checklistProgress(task)
 
   return (
     <article
@@ -49,8 +50,18 @@ export const TaskCard = memo(function TaskCard({ task, selected, onSelect, onOpe
       <DefconBadge level={task.defcon} />
       <div className="card-main">
         <div className="card-title">{task.title}</div>
-        {(task.due || task.note || stale !== null) && (
+        {(task.due || task.note || stale !== null || steps) && (
           <div className="card-meta">
+            {steps && (
+              <span
+                className="steps"
+                data-complete={steps.done === steps.total}
+                title={`Checkliste: ${steps.done} von ${steps.total} Schritten erledigt`}
+              >
+                <span aria-hidden="true">{steps.done === steps.total ? '☑' : '☐'}</span>
+                {steps.done}/{steps.total}
+              </span>
+            )}
             {task.due && (
               <span className="due" data-tone={dueTone}>
                 <span aria-hidden="true">{dueTone === 'overdue' ? '▲' : '◷'}</span>

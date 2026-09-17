@@ -4,6 +4,7 @@ import { describe, it } from 'vitest'
 import {
   appendIndex,
   cellId,
+  checklistProgress,
   createDemoData,
   groupByCell,
   moveTask,
@@ -36,6 +37,7 @@ function task(id: string, projectId: string, status: Status, order: number, defc
     createdAt: '2026-01-01T00:00:00.000Z',
     statusSince: '2026-01-01T00:00:00.000Z',
     doneAt: null,
+    checklist: [],
   }
 }
 
@@ -275,6 +277,32 @@ describe('staleDays', () => {
   it('survives a missing or malformed timestamp', () => {
     assert.equal(staleDays({ ...aged('a', 'blocked', 5), statusSince: '' }), null)
     assert.equal(staleDays({ ...aged('a', 'blocked', 5), statusSince: 'gestern' }), null)
+  })
+})
+
+/* --------------------------------------------------------------- checklist */
+
+describe('checklistProgress', () => {
+  /** A task with `done` of `total` steps ticked. */
+  const withSteps = (done: number, total: number): Task => ({
+    ...task('t1', 'p1', 'todo', 0),
+    checklist: Array.from({ length: total }, (_, index) => ({
+      id: `c${index}`,
+      text: `Schritt ${index + 1}`,
+      done: index < done,
+    })),
+  })
+
+  it('stays silent for a task without steps', () => {
+    // Nothing to show beats a defeated 0/0.
+    assert.equal(checklistProgress(task('t1', 'p1', 'todo', 0)), null)
+  })
+
+  it('counts the ticked steps and rounds the percentage', () => {
+    assert.deepEqual(checklistProgress(withSteps(0, 4)), { done: 0, total: 4, percent: 0 })
+    assert.deepEqual(checklistProgress(withSteps(1, 3)), { done: 1, total: 3, percent: 33 })
+    assert.deepEqual(checklistProgress(withSteps(2, 3)), { done: 2, total: 3, percent: 67 })
+    assert.deepEqual(checklistProgress(withSteps(5, 5)), { done: 5, total: 5, percent: 100 })
   })
 })
 
@@ -547,6 +575,43 @@ describe('normalizeData', () => {
       tasks: [{ id: 't1', projectId: 'p1', createdAt: '2026-02-03T10:00:00.000Z' }],
     })
     assert.equal(result.tasks[0].statusSince, '2026-02-03T10:00:00.000Z')
+  })
+
+  it('repairs a checklist and throws away nameless steps', () => {
+    const result = normalizeData({
+      projects: [{ id: 'p1' }],
+      tasks: [
+        {
+          id: 't1',
+          projectId: 'p1',
+          checklist: [
+            { id: 'c1', text: 'Schritt eins', done: true },
+            { text: '  Schritt zwei  ' },
+            { id: 'c3', text: '   ' },
+            null,
+            { id: 'c4', text: 'Schritt drei', done: 'ja' },
+          ],
+        },
+        { id: 't2', projectId: 'p1', checklist: 'kaputt' },
+      ],
+    })
+
+    const steps = result.tasks[0].checklist
+    assert.deepEqual(
+      steps.map((item) => [item.text, item.done]),
+      [
+        ['Schritt eins', true],
+        ['Schritt zwei', false],
+        // A non-boolean "done" is not a yes.
+        ['Schritt drei', false],
+      ],
+    )
+    // Every step needs an id, even the one that arrived without.
+    assert.ok(steps.every((item) => item.id !== ''))
+    assert.equal(new Set(steps.map((item) => item.id)).size, 3)
+
+    // Boards from before the checklist existed just get an empty one.
+    assert.deepEqual(result.tasks[1].checklist, [])
   })
 
   it('gives every done task a doneAt timestamp', () => {

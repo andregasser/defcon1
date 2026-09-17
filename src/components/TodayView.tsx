@@ -1,5 +1,5 @@
 import { DEFCON_BY_LEVEL, STATUS_BY_ID } from '../constants'
-import { staleDays } from '../lib/board'
+import { checklistProgress, staleDays } from '../lib/board'
 import { vars } from '../lib/css'
 import { dateTone, formatDateShort } from '../lib/date'
 import type { TodaySection } from '../lib/today'
@@ -87,6 +87,7 @@ interface RowProps {
 function TodayRow({ task, project, selected, onSelect, onOpen }: RowProps) {
   const dueTone = dateTone(task.due, 3)
   const stale = staleDays(task)
+  const steps = checklistProgress(task)
   const status = STATUS_BY_ID[task.status]
 
   return (
@@ -103,6 +104,17 @@ function TodayRow({ task, project, selected, onSelect, onOpen }: RowProps) {
     >
       <DefconBadge level={task.defcon} />
       <span className="today-title">{task.title}</span>
+
+      {steps && (
+        <span
+          className="steps"
+          data-complete={steps.done === steps.total}
+          title={`Checkliste: ${steps.done} von ${steps.total} Schritten erledigt`}
+        >
+          <span aria-hidden="true">{steps.done === steps.total ? '☑' : '☐'}</span>
+          {steps.done}/{steps.total}
+        </span>
+      )}
 
       {task.due && (
         <span className="due" data-tone={dueTone}>

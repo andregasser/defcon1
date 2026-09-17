@@ -1,5 +1,5 @@
 import { DEFAULT_DEFCON, PROJECT_COLORS, STALE_AFTER_DAYS, STATUS_IDS } from '../constants'
-import type { BoardData, Defcon, LaneSort, Project, Status, Task } from '../types'
+import type { BoardData, ChecklistItem, Defcon, LaneSort, Project, Status, Task } from '../types'
 import { daysSince, daysUntil, nowISO, todayISO } from './date'
 
 export function uid(prefix = 'id'): string {
@@ -141,7 +141,31 @@ export function createTask(
     createdAt: nowISO(),
     statusSince: nowISO(),
     doneAt: status === 'done' ? nowISO() : null,
+    checklist: [],
   }
+}
+
+/* --------------------------------------------------------------- checklist */
+
+export interface ChecklistProgress {
+  done: number
+  total: number
+  percent: number
+}
+
+/**
+ * Progress over a task's steps, or null when there are none — a task without a
+ * checklist should show nothing at all rather than a defeated `0/0`.
+ */
+export function checklistProgress(task: Task): ChecklistProgress | null {
+  const total = task.checklist.length
+  if (total === 0) return null
+  const done = task.checklist.filter((item) => item.done).length
+  return { done, total, percent: Math.round((done / total) * 100) }
+}
+
+export function createChecklistItem(text: string): ChecklistItem {
+  return { id: uid('c'), text, done: false }
 }
 
 export function createProject(name: string, order: number, colorSeed = order): Project {
@@ -273,11 +297,11 @@ export function createDemoData(): BoardData {
   const daysAgo = (n: number) =>
     new Date(today.getFullYear(), today.getMonth(), today.getDate() - n, 9).toISOString()
 
-  /** `[status, title, defcon, due, days in that status]` */
+  /** `[status, title, defcon, due, days in that status, [step, erledigt][]]` */
   const specs: Array<{
     name: string
     deadline: string | null
-    tasks: Array<[Status, string, Defcon, string | null, number?]>
+    tasks: Array<[Status, string, Defcon, string | null, number?, Array<[string, boolean]>?]>
   }> = [
     {
       name: 'Migration Cloud',
@@ -285,9 +309,30 @@ export function createDemoData(): BoardData {
       tasks: [
         ['doing', 'Terraform-Module refactoren', 2, inDays(2), 1],
         ['blocked', 'Netzwerk-Freigabe Firewall', 1, inDays(-1), 6],
-        ['todo', 'Runbook schreiben', 4, inDays(9)],
+        [
+          'todo',
+          'Runbook schreiben',
+          4,
+          inDays(9),
+          0,
+          [
+            ['Ablauf skizzieren', true],
+            ['Rollback beschreiben', false],
+            ['Review mit Ops', false],
+          ],
+        ],
         ['backlog', 'Kostenmodell prüfen', 5, null],
-        ['done', 'Landing Zone aufgesetzt', 3, null],
+        [
+          'done',
+          'Landing Zone aufgesetzt',
+          3,
+          null,
+          0,
+          [
+            ['Accounts angelegt', true],
+            ['Guardrails aktiv', true],
+          ],
+        ],
       ],
     },
     {
@@ -318,11 +363,15 @@ export function createDemoData(): BoardData {
     projects.push(project)
 
     const perStatus = new Map<Status, number>()
-    for (const [status, title, defcon, due, sinceDays = 0] of spec.tasks) {
+    for (const [status, title, defcon, due, sinceDays = 0, steps = []] of spec.tasks) {
       const order = perStatus.get(status) ?? 0
       perStatus.set(status, order + 1)
       const task = createTask(project.id, status, title, order, { defcon, due })
-      tasks.push(sinceDays > 0 ? { ...task, statusSince: daysAgo(sinceDays) } : task)
+      tasks.push({
+        ...task,
+        statusSince: sinceDays > 0 ? daysAgo(sinceDays) : task.statusSince,
+        checklist: steps.map(([text, done]) => ({ ...createChecklistItem(text), done })),
+      })
     }
   })
 

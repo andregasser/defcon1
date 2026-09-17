@@ -13,6 +13,16 @@ export interface Project {
   order: number
 }
 
+/**
+ * One step inside a task. Deliberately not a task itself: a checklist item has
+ * no status, no DEFCON and no place on the board — it is either done or not.
+ */
+export interface ChecklistItem {
+  id: string
+  text: string
+  done: boolean
+}
+
 export interface Task {
   id: string
   projectId: string
@@ -31,6 +41,8 @@ export interface Task {
    */
   statusSince: string
   doneAt: string | null
+  /** Steps within this task, in the order they should be worked through. */
+  checklist: ChecklistItem[]
 }
 
 export interface BoardData {

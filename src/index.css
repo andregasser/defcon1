@@ -1051,6 +1051,22 @@ select {
   white-space: nowrap;
 }
 
+/* Checklist progress: how much of the task itself is already behind you. */
+.steps {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  color: var(--fg-2);
+  white-space: nowrap;
+}
+
+.steps[data-complete='true'] {
+  color: var(--green);
+}
+
 .note-dot {
   color: var(--fg-2);
   font-family: var(--mono);
@@ -1460,6 +1476,62 @@ select {
   gap: 5px;
   flex-wrap: wrap;
   margin-top: 2px;
+}
+
+/* --------------------------------------------------------- checklist editor */
+
+.check-progress {
+  margin-left: 8px;
+  color: var(--fg-1);
+  text-transform: none;
+  letter-spacing: 0.03em;
+}
+
+.check-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.check-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.check-item input[type='checkbox'] {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  accent-color: var(--green);
+  cursor: pointer;
+}
+
+.check-item input[type='text'] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* A ticked step steps back visually — it is history, not work. */
+.check-item[data-done='true'] input[type='text'] {
+  color: var(--fg-2);
+  text-decoration: line-through;
+  text-decoration-color: var(--line-3);
+}
+
+.check-add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.check-add input[type='text'] {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 /* -------------------------------------------------------------------- help */

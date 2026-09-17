@@ -136,6 +136,32 @@ describe('App', () => {
     })
   })
 
+  it('tracks the checklist of a task on its card', async () => {
+    const user = await renderWithDemo()
+
+    // The demo runbook arrives with one of three steps ticked.
+    const card = cardByTitle('Runbook schreiben')
+    assert.match(within(card).getByTitle(/1 von 3 Schritten/).textContent ?? '', /1\/3/)
+
+    await user.dblClick(card)
+    await screen.findByRole('dialog', { name: 'Task bearbeiten' })
+
+    await user.click(screen.getByLabelText('Rollback beschreiben abhaken'))
+    await user.type(screen.getByPlaceholderText('Schritt hinzufügen …'), 'Freigabe einholen{Enter}')
+    await user.click(screen.getByRole('button', { name: 'Speichern' }))
+
+    await waitFor(() => {
+      const updated = cardByTitle('Runbook schreiben')
+      assert.match(within(updated).getByTitle(/2 von 4 Schritten/).textContent ?? '', /2\/4/)
+    })
+
+    // A fully ticked list reads as complete rather than as work in progress.
+    const finished = within(cardByTitle('Landing Zone aufgesetzt')).getByTitle(
+      /2 von 2 Schritten/,
+    )
+    assert.equal(finished.dataset.complete, 'true')
+  })
+
   it('creates a task from the quick-add mini syntax', async () => {
     const user = await renderWithDemo()
 

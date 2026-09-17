@@ -25,7 +25,7 @@ allen gleichzeitig.
 | `npm start` | Build + Server (der normale Weg) |
 | `npm run serve` | Nur den Server starten, ohne neu zu bauen |
 | `npm run dev` | Vite-Dev-Server (`:5173`) + API-Server, mit Hot Reload |
-| `npm test` | Vitest, 75 Tests |
+| `npm test` | Vitest, 79 Tests |
 | `npm run typecheck` | TypeScript strict prüfen |
 
 Umgebungsvariablen: `DEFCON1_PORT` (Standard `7777`), `DEFCON1_HOST` (Standard
@@ -92,6 +92,11 @@ Dafür ist das UI gebaut:
   Stehengelassenen. DEFCON sagt, was wichtig ist; die Liegezeit sagt, was
   vergessen wurde. Umsortieren in der Spalte oder ein Wechsel des Projekts
   starten die Uhr nicht neu, nur ein echter Spaltenwechsel.
+* **Checkliste pro Task**: im Task-Dialog beliebig viele Schritte anlegen,
+  abhaken, umbenennen, löschen. Die Karte zeigt nur den Stand — `☐ 1/3`, grün
+  `☑ 3/3`, wenn alles erledigt ist. Ein Schritt ist absichtlich kein Task: er hat
+  keinen Status, kein DEFCON und keinen Platz auf dem Board, sonst wäre die Lane
+  in einer Woche unlesbar.
 * **Heute** (`t`): eine flache Liste quer über alle Projekte, gruppiert nach
   Druck statt nach Projekt — Überfällig, Heute fällig, In Arbeit, Brennt
   (DEFCON 1–2, nicht in Arbeit). Jeder Task steht in genau einer Gruppe, die
