@@ -25,7 +25,7 @@ the same time.
 | `npm start` | Build + server (the normal way) |
 | `npm run serve` | Server only, without rebuilding |
 | `npm run dev` | Vite dev server (`:5173`) + API server, with hot reload |
-| `npm test` | Vitest, 89 tests |
+| `npm test` | Vitest, 92 tests |
 | `npm run typecheck` | Check TypeScript strict |
 
 Environment variables: `DEFCON1_PORT` (default `7777`), `DEFCON1_HOST` (default
@@ -70,6 +70,10 @@ browser talks to it.
 * **Without a server**: the frontend falls back to localStorage automatically and
   shows "this browser only" in the top right. Start the server later and an
   existing localStorage board is migrated once.
+* **Server restarted underneath you**: if you reload while the server is
+  restarting, the page starts browser-only — and then reconnects on its own
+  within a few seconds, no reload needed. Your board on disk is untouched the
+  whole time.
 * **By hand**: `Export` writes a JSON file, `Import` reads it back. The server is
   one process with one file — you are welcome to copy `data/board.json`, put it
   under version control or drop it into a sync folder.

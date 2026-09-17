@@ -58,7 +58,7 @@ export interface Prefs {
   taskSort: TaskSort
   hideDone: boolean
   hideEmptyLanes: boolean
-  /** Sound the klaxon when a task reaches DEFCON 1. */
+  /** Sound the alarm when a task reaches DEFCON 1. */
   sound: boolean
   deckOpen: boolean
   collapsedProjects: string[]

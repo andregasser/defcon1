@@ -24,7 +24,7 @@ npm install
 | Command | Purpose |
 | --- | --- |
 | `npm run dev` | Vite (`:5173`) + API server together, hot reload — use this while coding |
-| `npm test` | Vitest once (89 tests) |
+| `npm test` | Vitest once (92 tests) |
 | `npm run test:watch` | Vitest in watch mode |
 | `npm run typecheck` | `tsc -b --noEmit`, strict |
 | `npm run build` | `tsc -b && vite build` into `dist/` |
@@ -59,7 +59,7 @@ src/lib/storage.ts    normalisation, localStorage, server transport, export/impo
 src/types.ts          the whole domain model
 src/constants.ts      statuses, DEFCON levels, colours, default prefs, storage keys
 src/index.css         all styling; CSS custom properties, no framework
-src/__tests__/        logic.test.ts (node env), app.test.tsx (jsdom)
+src/__tests__/        logic.test.ts (node env), app.test.tsx + useBoard.test.tsx (jsdom)
 data/board.json       runtime data, gitignored
 ```
 
@@ -87,6 +87,12 @@ Rules of thumb:
   the last 20 copies in `data/backups/`.
 * Without a server the frontend falls back to `localStorage`
   (`defcon1.data.v1`) and migrates that board once when a server appears.
+* **Browser-only mode is never a dead end.** `useBoard` keeps retrying
+  `connect()` every 4 s while it is in `local` mode, so reloading the page during
+  a server restart recovers on its own instead of showing an empty board until
+  the next reload. The retry stops for good as soon as the user edits something
+  in that mode (`localEditRef`) — pulling a board out from under someone is worse
+  than staying browser-only. `useBoard.test.tsx` covers all three paths.
 * View prefs live in `localStorage` (`defcon1.prefs.v1`) on purpose — they are
   per device. Never move them into `board.json`.
 * `normalizeData()` is the single gate for anything coming from disk, network or
