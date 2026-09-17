@@ -4,5 +4,7 @@ node_modules
 dist/
 
 # Your board and its rolling backups — local data, not source. Never commit these.
-data/
+# No trailing slash for the same reason as above: once DEFCON1_DATA_DIR points
+# outside the checkout, data is usually a symlink rather than a directory.
+data
 *.board.json
