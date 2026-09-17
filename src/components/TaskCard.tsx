@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { DEFCON_BY_LEVEL } from '../constants'
+import { useLang, useT } from '../i18n'
 import { vars } from '../lib/css'
 import { dateTone, formatDateShort } from '../lib/date'
 import type { Task } from '../types'
@@ -19,6 +20,8 @@ interface Props {
  * every drag move re-renders the tree. Only the touched cards should re-paint.
  */
 export const TaskCard = memo(function TaskCard({ task, selected, onSelect, onOpen }: Props) {
+  const t = useT()
+  const lang = useLang()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
     data: { type: 'task', projectId: task.projectId, status: task.status },
@@ -52,11 +55,11 @@ export const TaskCard = memo(function TaskCard({ task, selected, onSelect, onOpe
             {task.due && (
               <span className="due" data-tone={dueTone}>
                 <span aria-hidden="true">{dueTone === 'overdue' ? '▲' : '◷'}</span>
-                {formatDateShort(task.due)}
+                {formatDateShort(task.due, lang)}
               </span>
             )}
             {task.note && (
-              <span className="note-dot" title="Notiz vorhanden">
+              <span className="note-dot" title={t.card.noteTitle}>
                 ≡
               </span>
             )}

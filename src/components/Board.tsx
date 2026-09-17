@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
 import { STATUSES } from '../constants'
+import { useT } from '../i18n'
 import { cellId, type ProjectStats } from '../lib/board'
 import type { LaneSort, Prefs, Project, Status, Task } from '../types'
 import { Cell } from './Cell'
@@ -60,6 +61,7 @@ export function Board({
   onSelectTask,
   onOpenTask,
 }: Props) {
+  const t = useT()
   // Reclaim the Done column's width when it is not the current concern.
   const doneColumn = prefs.hideDone ? '74px' : 'minmax(var(--col-min), 1fr)'
 
@@ -75,12 +77,12 @@ export function Board({
           type="button"
           className="btn icon"
           onClick={onToggleAllCollapsed}
-          title={allCollapsed ? 'Alle Swimlanes aufklappen' : 'Alle Swimlanes einklappen'}
+          title={allCollapsed ? t.board.expandAll : t.board.collapseAll}
         >
           {allCollapsed ? '▸' : '▾'}
         </button>
         <span className="micro" style={{ marginLeft: 4 }}>
-          {projects.length} {projects.length === 1 ? 'Projekt' : 'Projekte'}
+          {t.board.projectCount(projects.length)}
         </span>
       </div>
 
@@ -91,7 +93,7 @@ export function Board({
               {prefs.hideDone && status.id === 'done' ? '✓' : status.label}
             </span>
             {!(prefs.hideDone && status.id === 'done') && (
-              <span className="colhead-hint">{status.hint}</span>
+              <span className="colhead-hint">{t.status.hint[status.id]}</span>
             )}
           </span>
           <span className="count">{columnTotals.get(status.id) ?? 0}</span>
@@ -165,11 +167,7 @@ export function Board({
         )
       })}
 
-      {projects.length === 0 && (
-        <div className="no-match">
-          Keine Swimlane passt zu den aktiven Filtern.
-        </div>
-      )}
+      {projects.length === 0 && <div className="no-match">{t.board.noMatch}</div>}
     </div>
   )
 }

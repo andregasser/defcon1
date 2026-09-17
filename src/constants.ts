@@ -2,17 +2,20 @@ import type { Defcon, Prefs, Status } from './types'
 
 export interface StatusMeta {
   id: Status
+  /**
+   * Column name. Intentionally the same in every language: these five words are
+   * the shared vocabulary of every task board, and `1`–`5` should always mean
+   * the same column. The translated hint underneath explains them.
+   */
   label: string
-  /** Shown in the column header, right under the label. */
-  hint: string
 }
 
 export const STATUSES: StatusMeta[] = [
-  { id: 'backlog', label: 'Backlog', hint: 'unsortiert' },
-  { id: 'todo', label: 'Todo', hint: 'geplant' },
-  { id: 'doing', label: 'In Progress', hint: 'läuft' },
-  { id: 'blocked', label: 'Blocked', hint: 'wartet' },
-  { id: 'done', label: 'Done', hint: 'erledigt' },
+  { id: 'backlog', label: 'Backlog' },
+  { id: 'todo', label: 'Todo' },
+  { id: 'doing', label: 'In Progress' },
+  { id: 'blocked', label: 'Blocked' },
+  { id: 'done', label: 'Done' },
 ]
 
 export const STATUS_IDS: Status[] = STATUSES.map((s) => s.id)
@@ -20,18 +23,17 @@ export const STATUS_IDS: Status[] = STATUSES.map((s) => s.id)
 export interface DefconMeta {
   level: Defcon
   color: string
-  /** Official DEFCON code word — used as the tooltip. */
+  /** Official DEFCON code word. Stays untranslated — it is a proper name. */
   code: string
-  label: string
 }
 
 /** Authentic DEFCON colour coding: 1 white, 2 red, 3 yellow, 4 green, 5 blue. */
 export const DEFCONS: DefconMeta[] = [
-  { level: 1, color: '#ffffff', code: 'COCKED PISTOL', label: 'sofort' },
-  { level: 2, color: '#ff453a', code: 'FAST PACE', label: 'kritisch' },
-  { level: 3, color: '#ffd60a', code: 'ROUND HOUSE', label: 'wichtig' },
-  { level: 4, color: '#32d74b', code: 'DOUBLE TAKE', label: 'normal' },
-  { level: 5, color: '#0a84ff', code: 'FADE OUT', label: 'irgendwann' },
+  { level: 1, color: '#ffffff', code: 'COCKED PISTOL' },
+  { level: 2, color: '#ff453a', code: 'FAST PACE' },
+  { level: 3, color: '#ffd60a', code: 'ROUND HOUSE' },
+  { level: 4, color: '#32d74b', code: 'DOUBLE TAKE' },
+  { level: 5, color: '#0a84ff', code: 'FADE OUT' },
 ]
 
 export const DEFCON_BY_LEVEL: Record<Defcon, DefconMeta> = Object.fromEntries(
@@ -59,6 +61,8 @@ export const PROJECT_COLORS = [
 ]
 
 export const DEFAULT_PREFS: Prefs = {
+  // Overridden by the browser's language on first load, see loadPrefs().
+  lang: 'de',
   density: 'comfort',
   laneSort: 'deadline',
   hideDone: false,

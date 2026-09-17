@@ -13,7 +13,17 @@ import {
   reorderProject,
   sortProjects,
 } from '../lib/board'
-import { daysUntil, formatCountdown, formatDate, parseISODate, todayISO } from '../lib/date'
+import { de } from '../i18n/de'
+import { en } from '../i18n/en'
+import { detectLang, isLang, LANGS } from '../i18n/lang'
+import {
+  daysUntil,
+  formatCountdown,
+  formatDate,
+  formatDateShort,
+  parseISODate,
+  todayISO,
+} from '../lib/date'
 import { parseQuickAdd } from '../lib/quickAdd'
 import { normalizeData, parseBackup } from '../lib/storage'
 import type { Defcon, Project, Status, Task } from '../types'
@@ -345,6 +355,12 @@ describe('date helpers', () => {
 
   it('formats Swiss style', () => {
     assert.equal(formatDate('2026-09-17'), '17.09.2026')
+    assert.equal(formatDateShort('2026-09-17'), '17.09.')
+  })
+
+  it('spells the month out in English so 09/20 can never be misread', () => {
+    assert.equal(formatDate('2026-09-17', 'en'), '17 Sep 2026')
+    assert.equal(formatDateShort('2026-09-17', 'en'), '17 Sep')
   })
 
   it('counts whole days in both directions', () => {
@@ -367,6 +383,93 @@ describe('date helpers', () => {
     assert.equal(formatCountdown(inDays(-3)), 'überfällig · 3 T')
     assert.equal(formatCountdown(null), '')
   })
+
+  it('describes the countdown in English', () => {
+    const now = new Date()
+    const inDays = (n: number) =>
+      todayISO(new Date(now.getFullYear(), now.getMonth(), now.getDate() + n))
+
+    assert.equal(formatCountdown(inDays(0), 'en'), 'today')
+    assert.equal(formatCountdown(inDays(1), 'en'), 'tomorrow')
+    assert.equal(formatCountdown(inDays(12), 'en'), 'in 12 d')
+    assert.equal(formatCountdown(inDays(70), 'en'), 'in 10 wk')
+    assert.equal(formatCountdown(inDays(300), 'en'), 'in 10 mo')
+    assert.equal(formatCountdown(inDays(-3), 'en'), 'overdue · 3 d')
+  })
+})
+
+/* -------------------------------------------------------------------- i18n */
+
+/** Recursive shape of a dictionary: same keys, same kind of value everywhere. */
+function shape(value: unknown, path = ''): string[] {
+  if (typeof value === 'function') return [`${path}:fn/${(value as () => void).length}`]
+  if (Array.isArray(value)) return [`${path}:array/${value.length}`]
+  if (value && typeof value === 'object') {
+    return Object.keys(value)
+      .sort()
+      .flatMap((key) => shape((value as Record<string, unknown>)[key], `${path}.${key}`))
+  }
+  return [`${path}:${typeof value}`]
+}
+
+describe('dictionaries', () => {
+  it('cover exactly the same keys with the same kind of value', () => {
+    // The `Dict` type already guards the keys at compile time; this catches a
+    // string where the other language has a function, which types allow.
+    assert.deepEqual(shape(en), shape(de))
+  })
+
+  it('translate every entry', () => {
+    const flat = (dict: unknown): string[] =>
+      typeof dict === 'string'
+        ? [dict]
+        : Array.isArray(dict)
+          ? dict.flatMap(flat)
+          : dict && typeof dict === 'object'
+            ? Object.values(dict).flatMap(flat)
+            : []
+
+    // Deliberate exceptions: identical in both languages on purpose — loan
+    // words, file paths, column names, the language-agnostic date tokens and the
+    // empty label of the idle save state.
+    const shared = new Set([
+      '',
+      'Export',
+      'Import',
+      'OK',
+      'Defcon',
+      'Deadline',
+      'Status',
+      'DEFCON',
+      'In Progress',
+      '+ Task',
+      'Lanes',
+      'normal',
+      'data/board.json',
+      '@+3d',
+      '@20.09.',
+      '@2026-09-20',
+    ])
+    const german = new Set(flat(de).filter((value) => !shared.has(value)))
+    const untranslated = flat(en).filter((value) => german.has(value))
+    assert.deepEqual(untranslated, [])
+  })
+
+  it('accepts only known language codes', () => {
+    assert.deepEqual(LANGS, ['de', 'en'])
+    assert.ok(isLang('de'))
+    assert.ok(!isLang('fr'))
+    assert.ok(!isLang(undefined))
+  })
+
+  it('follows the browser languages, German only when asked for', () => {
+    assert.equal(detectLang(['de-CH', 'en-US']), 'de')
+    assert.equal(detectLang(['en-GB', 'de']), 'de')
+    assert.equal(detectLang(['fr-CH', 'it-CH']), 'en')
+    assert.equal(detectLang([]), 'en')
+    // Whatever the machine reports, the result has to be a language we have.
+    assert.ok(isLang(detectLang()))
+  })
 })
 
 /* ------------------------------------------------------------- normalisation */
@@ -379,7 +482,7 @@ describe('normalizeData', () => {
 
   it('fills in missing fields', () => {
     const result = normalizeData({ projects: [{ id: 'p1' }], tasks: [{ id: 't1', projectId: 'p1' }] })
-    assert.equal(result.projects[0].name, 'Ohne Namen')
+    assert.equal(result.projects[0].name, 'Untitled project')
     assert.equal(result.projects[0].deadline, null)
     assert.equal(result.tasks[0].status, 'backlog')
     assert.equal(result.tasks[0].defcon, 4)
@@ -437,7 +540,7 @@ describe('parseBackup', () => {
 
 describe('createDemoData', () => {
   it('produces a consistent board', () => {
-    const demo = createDemoData()
+    const demo = createDemoData('de')
     assert.equal(demo.projects.length, 3)
     assert.ok(demo.tasks.length > 5)
 
@@ -457,7 +560,7 @@ describe('createDemoData', () => {
   })
 
   it('survives a round-trip through normalizeData unchanged', () => {
-    const demo = createDemoData()
+    const demo = createDemoData('en')
     assert.deepEqual(normalizeData(demo), demo)
   })
 })

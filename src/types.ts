@@ -1,3 +1,6 @@
+/** UI language. The board data itself is language-neutral. */
+export type Lang = 'de' | 'en'
+
 export type Status = 'backlog' | 'todo' | 'doing' | 'blocked' | 'done'
 
 /** Priority, expressed as a DEFCON level. 1 = maximum readiness, 5 = at ease. */
@@ -41,6 +44,7 @@ export type LaneSort = 'manual' | 'deadline'
  * shared data file: how you look at the board is per-device, the tasks are not.
  */
 export interface Prefs {
+  lang: Lang
   density: Density
   laneSort: LaneSort
   hideDone: boolean
@@ -55,3 +59,12 @@ export interface Prefs {
 export type StorageMode = 'loading' | 'server' | 'local'
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'error'
+
+/**
+ * Something the user should know about, reported as a code rather than as a
+ * sentence: the data layer has no business owning UI copy in two languages.
+ */
+export type BoardNotice =
+  | { kind: 'conflict' }
+  | { kind: 'migrated' }
+  | { kind: 'saveFailed'; detail: string }

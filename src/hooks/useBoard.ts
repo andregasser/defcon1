@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { BoardData, SaveState, StorageMode } from '../types'
+import type { BoardData, BoardNotice, SaveState, StorageMode } from '../types'
 import {
   fetchState,
   loadLocalData,
@@ -17,8 +17,8 @@ export interface BoardStore {
   data: BoardData
   mode: StorageMode
   saveState: SaveState
-  /** Reachable file path on disk, when the persistence server answered. */
-  notice: string | null
+  /** Something worth telling the user, as a code the UI turns into a sentence. */
+  notice: BoardNotice | null
   clearNotice: () => void
   /** Applies a pure transformation and schedules a save. */
   update: (recipe: (data: BoardData) => BoardData) => void
@@ -40,7 +40,7 @@ export function useBoard(): BoardStore {
   const [data, setData] = useState<BoardData>(EMPTY)
   const [mode, setMode] = useState<StorageMode>('loading')
   const [saveState, setSaveState] = useState<SaveState>('idle')
-  const [notice, setNotice] = useState<string | null>(null)
+  const [notice, setNotice] = useState<BoardNotice | null>(null)
 
   const dataRef = useRef<BoardData>(EMPTY)
   const revRef = useRef(0)
@@ -90,12 +90,12 @@ export function useBoard(): BoardStore {
       // overwritten changes we never saw.
       adopt(result.state.data, result.state.rev)
       setSaveState('idle')
-      setNotice('Board wurde in einem anderen Browser geändert — die neuere Version ist jetzt geladen.')
+      setNotice({ kind: 'conflict' })
       return
     }
 
     setSaveState('error')
-    setNotice(`Speichern fehlgeschlagen: ${result.error}`)
+    setNotice({ kind: 'saveFailed', detail: result.error })
   }, [adopt])
 
   const flush = useCallback(async () => {
@@ -143,7 +143,7 @@ export function useBoard(): BoardStore {
         // carry the existing board over instead of showing an empty screen.
         adopt(local, remote.rev)
         dirtyRef.current = true
-        setNotice('Board aus dem Browser-Speicher übernommen und in data/board.json gesichert.')
+        setNotice({ kind: 'migrated' })
         void flush()
         return
       }

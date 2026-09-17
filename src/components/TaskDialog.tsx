@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { DEFCONS, STATUSES } from '../constants'
+import { useT } from '../i18n'
 import { vars } from '../lib/css'
 import { todayISO } from '../lib/date'
 import type { Defcon, Project, Status, Task } from '../types'
@@ -20,6 +21,7 @@ function shiftedToday(days: number): string {
 }
 
 export function TaskDialog({ task, projects, onSave, onDelete, onClose }: Props) {
+  const t = useT()
   const [title, setTitle] = useState(task.title)
   const [note, setNote] = useState(task.note)
   const [defcon, setDefcon] = useState<Defcon>(task.defcon)
@@ -43,15 +45,15 @@ export function TaskDialog({ task, projects, onSave, onDelete, onClose }: Props)
 
   return (
     <Dialog
-      title="Task bearbeiten"
+      title={t.taskDialog.title}
       onClose={onClose}
       footer={
         <>
           <button type="button" className="btn primary" onClick={submit}>
-            Speichern
+            {t.actions.save}
           </button>
           <button type="button" className="btn" onClick={onClose}>
-            Abbrechen
+            {t.actions.cancel}
           </button>
           <span className="spacer" />
           <button
@@ -61,16 +63,16 @@ export function TaskDialog({ task, projects, onSave, onDelete, onClose }: Props)
               onDelete(task.id)
               onClose()
             }}
-            title="Task löschen"
+            title={t.taskDialog.deleteTitle}
           >
-            Löschen
+            {t.actions.delete}
           </button>
         </>
       }
     >
       <div className="dialog-body">
         <div className="field">
-          <label htmlFor="task-title">Titel</label>
+          <label htmlFor="task-title">{t.taskDialog.titleLabel}</label>
           <input
             id="task-title"
             type="text"
@@ -86,7 +88,7 @@ export function TaskDialog({ task, projects, onSave, onDelete, onClose }: Props)
         </div>
 
         <div className="field">
-          <label>Defcon — Priorität</label>
+          <label>{t.taskDialog.defconLabel}</label>
           <div className="dc-picker">
             {DEFCONS.map((meta) => (
               <button
@@ -99,7 +101,7 @@ export function TaskDialog({ task, projects, onSave, onDelete, onClose }: Props)
                 title={meta.code}
               >
                 <DefconBadge level={meta.level} />
-                <span>{meta.label}</span>
+                <span>{t.defcon.label[meta.level]}</span>
               </button>
             ))}
           </div>
@@ -107,7 +109,7 @@ export function TaskDialog({ task, projects, onSave, onDelete, onClose }: Props)
 
         <div className="field-row">
           <div className="field">
-            <label htmlFor="task-project">Projekt</label>
+            <label htmlFor="task-project">{t.taskDialog.projectLabel}</label>
             <select
               id="task-project"
               value={projectId}
@@ -121,7 +123,7 @@ export function TaskDialog({ task, projects, onSave, onDelete, onClose }: Props)
             </select>
           </div>
           <div className="field">
-            <label htmlFor="task-status">Status</label>
+            <label htmlFor="task-status">{t.taskDialog.statusLabel}</label>
             <select
               id="task-status"
               value={status}
@@ -137,7 +139,7 @@ export function TaskDialog({ task, projects, onSave, onDelete, onClose }: Props)
         </div>
 
         <div className="field">
-          <label htmlFor="task-due">Fällig am</label>
+          <label htmlFor="task-due">{t.taskDialog.dueLabel}</label>
           <input
             id="task-due"
             type="date"
@@ -146,26 +148,26 @@ export function TaskDialog({ task, projects, onSave, onDelete, onClose }: Props)
           />
           <div className="date-quick">
             <button type="button" className="btn sm" onClick={() => setDue(shiftedToday(0))}>
-              heute
+              {t.taskDialog.dueToday}
             </button>
             <button type="button" className="btn sm" onClick={() => setDue(shiftedToday(1))}>
-              morgen
+              {t.taskDialog.dueTomorrow}
             </button>
             <button type="button" className="btn sm" onClick={() => setDue(shiftedToday(7))}>
-              +1 Woche
+              {t.taskDialog.dueWeek}
             </button>
             <button type="button" className="btn sm" onClick={() => setDue('')}>
-              leeren
+              {t.actions.clearDate}
             </button>
           </div>
         </div>
 
         <div className="field">
-          <label htmlFor="task-note">Notiz</label>
+          <label htmlFor="task-note">{t.taskDialog.noteLabel}</label>
           <textarea
             id="task-note"
             value={note}
-            placeholder="Kontext, Links, offene Fragen …"
+            placeholder={t.taskDialog.notePlaceholder}
             onChange={(event) => setNote(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {

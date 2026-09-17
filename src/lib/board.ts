@@ -1,5 +1,6 @@
 import { DEFAULT_DEFCON, PROJECT_COLORS, STATUS_IDS } from '../constants'
-import type { BoardData, Defcon, LaneSort, Project, Status, Task } from '../types'
+import { getDict } from '../i18n'
+import type { BoardData, Defcon, Lang, LaneSort, Project, Status, Task } from '../types'
 import { daysUntil, nowISO, todayISO } from './date'
 
 export function uid(prefix = 'id'): string {
@@ -239,10 +240,15 @@ export function reorderProject(projects: Project[], projectId: string, delta: nu
 
 /* --------------------------------------------------------------- demo data */
 
-export function createDemoData(): BoardData {
+/**
+ * A board to look at on the first run. Task titles follow the interface
+ * language; the project names are the same either way.
+ */
+export function createDemoData(lang: Lang): BoardData {
   const today = new Date()
   const inDays = (n: number) =>
     todayISO(new Date(today.getFullYear(), today.getMonth(), today.getDate() + n))
+  const titles = getDict(lang).demo.tasks
 
   const specs: Array<{
     name: string
@@ -253,28 +259,28 @@ export function createDemoData(): BoardData {
       name: 'Migration Cloud',
       deadline: inDays(21),
       tasks: [
-        ['doing', 'Terraform-Module refactoren', 2, inDays(2)],
-        ['blocked', 'Netzwerk-Freigabe Firewall', 1, inDays(-1)],
-        ['todo', 'Runbook schreiben', 4, inDays(9)],
-        ['backlog', 'Kostenmodell prüfen', 5, null],
-        ['done', 'Landing Zone aufgesetzt', 3, null],
+        ['doing', titles.terraform, 2, inDays(2)],
+        ['blocked', titles.firewall, 1, inDays(-1)],
+        ['todo', titles.runbook, 4, inDays(9)],
+        ['backlog', titles.costs, 5, null],
+        ['done', titles.landingZone, 3, null],
       ],
     },
     {
       name: 'Reporting Q4',
       deadline: inDays(5),
       tasks: [
-        ['doing', 'Kennzahlen abstimmen', 2, inDays(1)],
-        ['todo', 'Dashboard-Layout finalisieren', 3, inDays(3)],
-        ['done', 'Datenquellen inventarisiert', 4, null],
+        ['doing', titles.metrics, 2, inDays(1)],
+        ['todo', titles.dashboard, 3, inDays(3)],
+        ['done', titles.sources, 4, null],
       ],
     },
     {
       name: 'Onboarding Tool',
       deadline: inDays(60),
       tasks: [
-        ['backlog', 'Anforderungen sammeln', 5, null],
-        ['todo', 'Prototyp skizzieren', 4, inDays(14)],
+        ['backlog', titles.requirements, 5, null],
+        ['todo', titles.prototype, 4, inDays(14)],
       ],
     },
   ]

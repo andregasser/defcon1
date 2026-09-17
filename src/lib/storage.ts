@@ -6,8 +6,16 @@ import {
   PROJECT_COLORS,
   STATUS_IDS,
 } from '../constants'
+import { detectLang, isLang } from '../i18n/lang'
 import type { BoardData, Defcon, Prefs, Project, Status, Task } from '../types'
 import { nowISO } from './date'
+
+/**
+ * Thrown by `parseBackup` for a file without any content. A sentinel rather
+ * than a sentence, because the message shown to the user depends on the
+ * interface language.
+ */
+export const EMPTY_BACKUP = 'EMPTY_BACKUP'
 
 export interface RemoteState {
   rev: number
@@ -57,7 +65,9 @@ export function normalizeData(raw: unknown): BoardData {
     if (!project.id) return
     projects.push({
       id: String(project.id),
-      name: asString(project.name, 'Ohne Namen'),
+      // Placeholders for salvaged records stay untranslated: they are written
+      // into the shared board file, which has no language.
+      name: asString(project.name, 'Untitled project'),
       color: asString(project.color) || PROJECT_COLORS[index % PROJECT_COLORS.length],
       deadline: asDate(project.deadline),
       order: Number.isFinite(project.order) ? Number(project.order) : index,
@@ -73,7 +83,7 @@ export function normalizeData(raw: unknown): BoardData {
     tasks.push({
       id: String(task.id),
       projectId: String(task.projectId),
-      title: asString(task.title, 'Ohne Titel'),
+      title: asString(task.title, 'Untitled task'),
       note: asString(task.note),
       status,
       defcon: asDefcon(task.defcon),
@@ -144,25 +154,28 @@ export function saveLocalData(data: BoardData): void {
   try {
     localStorage.setItem(LOCAL_DATA_KEY, JSON.stringify(data))
   } catch (error) {
-    console.error('[defcon1] localStorage-Speichern fehlgeschlagen', error)
+    console.error('[defcon1] writing to localStorage failed', error)
   }
 }
 
 /* ------------------------------------------------------------------- prefs */
 
 export function loadPrefs(): Prefs {
+  // Without a stored choice the browser decides — a German browser gets German.
+  const fresh: Prefs = { ...DEFAULT_PREFS, lang: detectLang() }
   try {
     const raw = localStorage.getItem(PREFS_KEY)
-    if (!raw) return DEFAULT_PREFS
+    if (!raw) return fresh
     const parsed = JSON.parse(raw) as Partial<Prefs>
     return {
-      ...DEFAULT_PREFS,
+      ...fresh,
       ...parsed,
+      lang: isLang(parsed.lang) ? parsed.lang : fresh.lang,
       collapsedProjects: Array.isArray(parsed.collapsedProjects) ? parsed.collapsedProjects : [],
       focusedProjects: Array.isArray(parsed.focusedProjects) ? parsed.focusedProjects : [],
     }
   } catch {
-    return DEFAULT_PREFS
+    return fresh
   }
 }
 
@@ -195,7 +208,7 @@ export function parseBackup(text: string): BoardData {
   const payload = parsed && typeof parsed === 'object' && 'data' in parsed ? parsed.data : parsed
   const normalized = normalizeData(payload)
   if (normalized.projects.length === 0 && normalized.tasks.length === 0) {
-    throw new Error('Keine Projekte oder Tasks in der Datei gefunden')
+    throw new Error(EMPTY_BACKUP)
   }
   return normalized
 }

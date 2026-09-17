@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { useT } from '../i18n'
 import { cellId } from '../lib/board'
 import type { Status, Task } from '../types'
 import { QuickAdd } from './QuickAdd'
@@ -36,6 +37,7 @@ export function Cell({
   onSelect,
   onOpen,
 }: Props) {
+  const t = useT()
   const id = cellId(projectId, status)
   const { setNodeRef, isOver } = useDroppable({ id, data: { type: 'cell', projectId, status } })
   const ids = useMemo(() => tasks.map((task) => task.id), [tasks])
@@ -44,10 +46,7 @@ export function Cell({
   if (narrow) {
     return (
       <div ref={setNodeRef} className="cell" data-status={status} data-over={isOver}>
-        <span
-          className="count"
-          title={`${tasks.length} von ${totalCount} erledigten Tasks passen zum Filter — Ablegen weiterhin möglich`}
-        >
+        <span className="count" title={t.cell.narrowTitle(tasks.length, totalCount)}>
           {tasks.length}
         </span>
       </div>
@@ -69,8 +68,8 @@ export function Cell({
       </SortableContext>
 
       {hidden > 0 && (
-        <div className="quick-add-hint" title="Durch Filter ausgeblendet">
-          + {hidden} ausgeblendet
+        <div className="quick-add-hint" title={t.cell.hiddenTitle}>
+          {t.cell.hidden(hidden)}
         </div>
       )}
 
@@ -86,9 +85,9 @@ export function Cell({
             type="button"
             className="cell-add"
             onClick={() => onQuickAddOpen(id)}
-            title="Task hinzufügen"
+            title={t.cell.addTitle}
           >
-            + Task
+            {t.cell.add}
           </button>
         </>
       )}

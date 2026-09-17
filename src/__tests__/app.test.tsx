@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import userEvent from '@testing-library/user-event'
 
 import App from '../App'
+import { PREFS_KEY } from '../constants'
 import { createDemoData } from '../lib/board'
 import { daysUntil, formatCountdown, formatDate } from '../lib/date'
 
@@ -16,6 +17,9 @@ import { daysUntil, formatCountdown, formatDate } from '../lib/date'
 
 beforeEach(() => {
   localStorage.clear()
+  // jsdom reports en-US, which would hand the app its English dictionary. Pin
+  // the language so the assertions below can stay in one language.
+  localStorage.setItem(PREFS_KEY, JSON.stringify({ lang: 'de' }))
 })
 
 afterEach(() => {
@@ -36,6 +40,28 @@ function cellOf(card: HTMLElement): HTMLElement {
   const cell = card.closest('.cell')
   assert.ok(cell, 'Karte liegt in keiner Zelle')
   return cell as HTMLElement
+}
+
+/**
+ * The five cells of one swimlane. The board is one flat CSS grid, so a lane is
+ * its header followed by its cells — they are siblings, not children.
+ */
+function laneCells(projectName: string): HTMLElement[] {
+  const head = Array.from(document.querySelectorAll('.lane-head')).find(
+    (element) => element.querySelector('.lane-name')?.textContent === projectName,
+  )
+  assert.ok(head, `Keine Swimlane "${projectName}"`)
+  const cells: HTMLElement[] = []
+  let node = head.nextElementSibling
+  while (node && node.classList.contains('cell')) {
+    cells.push(node as HTMLElement)
+    node = node.nextElementSibling
+  }
+  return cells
+}
+
+function laneNames(): string[] {
+  return Array.from(document.querySelectorAll('.lane-name')).map((el) => el.textContent ?? '')
 }
 
 function cardByTitle(title: string): HTMLElement {
@@ -69,7 +95,7 @@ describe('App', () => {
     await renderWithDemo()
 
     // The demo board is relative to today, so pin the offsets first.
-    const deadlines = createDemoData().projects.map((p) => p.deadline)
+    const deadlines = createDemoData('de').projects.map((p) => p.deadline)
     assert.deepEqual(
       deadlines.map((d) => daysUntil(d)),
       [21, 5, 60],
@@ -87,8 +113,7 @@ describe('App', () => {
 
   it('sorts swimlanes by deadline, most urgent first', async () => {
     await renderWithDemo()
-    const laneNames = Array.from(document.querySelectorAll('.lane-name')).map((el) => el.textContent)
-    assert.deepEqual(laneNames, ['Reporting Q4', 'Migration Cloud', 'Onboarding Tool'])
+    assert.deepEqual(laneNames(), ['Reporting Q4', 'Migration Cloud', 'Onboarding Tool'])
   })
 
   it('creates a task from the quick-add mini syntax', async () => {
@@ -205,5 +230,87 @@ describe('App', () => {
       assert.equal(screen.getAllByText('Audit 2027').length, 2)
     })
     assert.ok(screen.getAllByText('31.03.2027').length > 0)
+  })
+
+  it('keeps a brand-new project visible while a task filter is active', async () => {
+    const user = await renderWithDemo()
+
+    // A project starts out without tasks — the exact case that used to vanish.
+    await user.click(screen.getByRole('button', { name: '+ Projekt' }))
+    await user.type(screen.getByLabelText('Projektname'), 'Audit 2027')
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }))
+    await waitFor(() => {
+      assert.ok(laneNames().includes('Audit 2027'))
+    })
+
+    const topbar = document.querySelector('.topbar') as HTMLElement
+    await user.click(within(topbar).getByTitle(/DEFCON 3/))
+
+    await waitFor(() => {
+      // Onboarding Tool has tasks, none of them DEFCON 3: filtered away, correctly.
+      assert.ok(!laneNames().includes('Onboarding Tool'))
+    })
+    // The empty project was never filtered — it must stay reachable.
+    assert.ok(laneNames().includes('Audit 2027'))
+
+    // And it must still accept its first task.
+    const backlog = laneCells('Audit 2027')[0]
+    await user.click(within(backlog).getByTitle('Task hinzufügen'))
+    // !3 keeps the new task inside the active filter, so the lane stays put.
+    await user.type(await screen.findByLabelText('Neuer Task'), 'Scope klären !3{Enter}')
+
+    await waitFor(() => {
+      assert.equal(within(laneCells('Audit 2027')[0]).getAllByText('Scope klären').length, 1)
+    })
+  })
+
+  it('shows every focused project, even one without tasks', async () => {
+    const user = await renderWithDemo()
+
+    await user.click(screen.getByRole('button', { name: '+ Projekt' }))
+    await user.type(screen.getByLabelText('Projektname'), 'Audit 2027')
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }))
+    await waitFor(() => {
+      assert.equal(document.querySelectorAll('.lane-head').length, 4)
+    })
+
+    for (const name of ['Reporting Q4', 'Audit 2027']) {
+      const tile = screen.getAllByText(name)[0].closest('.tile')
+      assert.ok(tile, name)
+      await user.click(tile as HTMLElement)
+    }
+
+    await waitFor(() => {
+      assert.deepEqual(laneNames().sort(), ['Audit 2027', 'Reporting Q4'])
+    })
+  })
+
+  it('switches the whole interface to English and back', async () => {
+    const user = await renderWithDemo()
+
+    await user.click(screen.getByRole('button', { name: 'EN' }))
+
+    await waitFor(() => {
+      assert.ok(screen.getByLabelText('Search tasks'))
+    })
+    assert.ok(screen.getByRole('button', { name: 'DE' }))
+    // Column names are the same in both languages on purpose.
+    assert.ok(screen.getByText('Backlog'))
+    assert.ok(screen.getByText('unsorted'))
+    // Project and task titles are data: they must not change.
+    assert.ok(screen.getByText('Terraform-Module refactoren'))
+    assert.equal(document.documentElement.lang, 'en')
+
+    await user.click(screen.getByRole('button', { name: 'DE' }))
+    await waitFor(() => {
+      assert.ok(screen.getByLabelText('Tasks durchsuchen'))
+    })
+    assert.equal(document.documentElement.lang, 'de')
+  })
+
+  it('starts in English for a browser that does not ask for German', async () => {
+    localStorage.clear()
+    render(<App />)
+    assert.ok(await screen.findByRole('button', { name: 'Create the first project' }))
   })
 })
