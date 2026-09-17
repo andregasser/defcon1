@@ -1,0 +1,5 @@
+node_modules/
+dist/
+
+# Your board and its rolling backups — local data, not source.
+data/
