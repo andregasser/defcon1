@@ -34,6 +34,12 @@ export function HelpDialog({ mode, onClose, onLoadDemo }: Props) {
           </span>
           <span>Suche fokussieren</span>
           <span>
+            <kbd>t</kbd>
+          </span>
+          <span>
+            Heute-Ansicht über alle Projekte: überfällig, heute fällig, in Arbeit, DEFCON 1–2
+          </span>
+          <span>
             <kbd>n</kbd>
           </span>
           <span>Neuer Task im ersten sichtbaren Projekt (Backlog)</span>

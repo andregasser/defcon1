@@ -103,6 +103,39 @@ describe('App', () => {
     assert.equal(within(cardByTitle('Terraform-Module refactoren')).queryByTitle(/Liegt seit/), null)
   })
 
+  it('opens the Heute list across all projects and back again', async () => {
+    await renderWithDemo()
+
+    // The chip counts before it is even opened: one overdue, two in progress.
+    const chip = screen.getByRole('button', { name: /^Heute/ })
+    assert.match(chip.textContent ?? '', /3$/)
+
+    fireEvent.keyDown(window, { key: 't' })
+
+    const list = await waitFor(() => {
+      const node = document.querySelector('.today')
+      assert.ok(node, 'Heute-Ansicht fehlt')
+      return node as HTMLElement
+    })
+
+    // Grouped by pressure, not by project — and the board is out of the way.
+    assert.deepEqual(
+      Array.from(list.querySelectorAll('.today-label')).map((el) => el.textContent),
+      ['Überfällig', 'In Arbeit'],
+    )
+    assert.equal(document.querySelectorAll('.lane-head').length, 0)
+
+    const overdue = list.querySelector('.today-group') as HTMLElement
+    assert.ok(within(overdue).getByText('Netzwerk-Freigabe Firewall'))
+    // Every row names its project, because the swimlane no longer does.
+    assert.ok(within(overdue).getByText('Migration Cloud'))
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    await waitFor(() => {
+      assert.equal(document.querySelectorAll('.lane-head').length, 3)
+    })
+  })
+
   it('creates a task from the quick-add mini syntax', async () => {
     const user = await renderWithDemo()
 

@@ -17,6 +17,8 @@ import {
 import { daysSince, daysUntil, formatCountdown, formatDate, parseISODate, todayISO } from '../lib/date'
 import { parseQuickAdd } from '../lib/quickAdd'
 import { normalizeData, parseBackup } from '../lib/storage'
+import type { TodaySection, TodaySectionId } from '../lib/today'
+import { todayCount, todayList } from '../lib/today'
 import type { Defcon, Project, Status, Task } from '../types'
 
 /* ------------------------------------------------------------------ helpers */
@@ -273,6 +275,71 @@ describe('staleDays', () => {
   it('survives a missing or malformed timestamp', () => {
     assert.equal(staleDays({ ...aged('a', 'blocked', 5), statusSince: '' }), null)
     assert.equal(staleDays({ ...aged('a', 'blocked', 5), statusSince: 'gestern' }), null)
+  })
+})
+
+/* ------------------------------------------------------------- heute-liste */
+
+describe('todayList', () => {
+  const now = new Date(2026, 2, 10, 9)
+  const day = (offset: number) => todayISO(new Date(2026, 2, 10 + offset))
+
+  /** `task()` with a due date, so the sections can be told apart. */
+  const due = (id: string, status: Status, defcon: Defcon, offset: number | null): Task => ({
+    ...task(id, 'p1', status, 0, defcon),
+    due: offset === null ? null : day(offset),
+  })
+
+  const ids = (sections: TodaySection[], id: TodaySectionId) =>
+    sections.find((section) => section.id === id)?.tasks.map((t) => t.id) ?? []
+
+  it('files every task under exactly one heading', () => {
+    const sections = todayList(
+      [
+        due('late', 'doing', 4, -2),
+        due('now', 'todo', 4, 0),
+        due('running', 'doing', 4, null),
+        due('burning', 'backlog', 1, null),
+        due('later', 'todo', 4, 5),
+      ],
+      now,
+    )
+
+    // "late" is overdue and in progress; the sharper reason wins.
+    assert.deepEqual(ids(sections, 'overdue'), ['late'])
+    assert.deepEqual(ids(sections, 'today'), ['now'])
+    assert.deepEqual(ids(sections, 'doing'), ['running'])
+    assert.deepEqual(ids(sections, 'hot'), ['burning'])
+
+    // Nothing appears twice, and a calm task due next week stays off the list.
+    assert.equal(todayCount(sections), 4)
+  })
+
+  it('leaves finished work out', () => {
+    const sections = todayList([due('shipped', 'done', 1, -3)], now)
+    assert.deepEqual(sections, [])
+    assert.equal(todayCount(sections), 0)
+  })
+
+  it('sorts the overdue block by date and the rest by DEFCON', () => {
+    const sections = todayList(
+      [
+        due('older', 'todo', 5, -9),
+        due('recent', 'todo', 1, -1),
+        due('calm', 'todo', 4, 0),
+        due('urgent', 'todo', 2, 0),
+      ],
+      now,
+    )
+
+    // Overdue: the longest-forgotten first, whatever its level.
+    assert.deepEqual(ids(sections, 'overdue'), ['older', 'recent'])
+    // Everything else: the most urgent level first.
+    assert.deepEqual(ids(sections, 'today'), ['urgent', 'calm'])
+  })
+
+  it('says nothing at all when nothing is pressing', () => {
+    assert.deepEqual(todayList([due('quiet', 'backlog', 4, 30), due('idle', 'todo', 3, null)], now), [])
   })
 })
 

@@ -21,6 +21,7 @@ import { HelpDialog } from './components/HelpDialog'
 import { ProjectDialog } from './components/ProjectDialog'
 import { TaskCardPreview } from './components/TaskCard'
 import { TaskDialog } from './components/TaskDialog'
+import { TodayView } from './components/TodayView'
 import { TopBar } from './components/TopBar'
 import { STATUS_IDS } from './constants'
 import { useBoard } from './hooks/useBoard'
@@ -43,6 +44,7 @@ import {
 import { nowISO } from './lib/date'
 import { parseQuickAdd } from './lib/quickAdd'
 import { downloadBackup, parseBackup } from './lib/storage'
+import { todayCount, todayList } from './lib/today'
 import type { Defcon, Status, Task } from './types'
 
 /**
@@ -69,6 +71,7 @@ export default function App() {
   const [taskDialogId, setTaskDialogId] = useState<string | null>(null)
   const [projectDialogId, setProjectDialogId] = useState<string | null | undefined>(undefined)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [todayOpen, setTodayOpen] = useState(false)
 
   const searchRef = useRef<HTMLInputElement>(null)
   const importRef = useRef<HTMLInputElement>(null)
@@ -156,6 +159,27 @@ export default function App() {
 
   const allCollapsed =
     visibleProjects.length > 0 && visibleProjects.every((project) => collapsedIds.has(project.id))
+
+  /**
+   * The Heute list deliberately ignores search and the DEFCON filter — it has
+   * its own idea of what is urgent — but it does respect the project focus, so
+   * "nur dieses Projekt" keeps meaning the same thing everywhere.
+   */
+  const todaySections = useMemo(
+    () =>
+      todayList(
+        focusedIds.size > 0
+          ? data.tasks.filter((task) => focusedIds.has(task.projectId))
+          : data.tasks,
+      ),
+    [data.tasks, focusedIds],
+  )
+  const todayTotal = useMemo(() => todayCount(todaySections), [todaySections])
+
+  const projectsById = useMemo(
+    () => new Map(data.projects.map((project) => [project.id, project])),
+    [data.projects],
+  )
 
   const selectedTask = useMemo(
     () => (selectedId ? (data.tasks.find((task) => task.id === selectedId) ?? null) : null),
@@ -461,10 +485,16 @@ export default function App() {
           event.preventDefault()
           setHelpOpen(true)
           return
+        case 't':
+          event.preventDefault()
+          setTodayOpen((current) => !current)
+          return
         case 'n': {
           event.preventDefault()
           const first = visibleProjects[0] ?? sortedProjects[0]
           if (!first) return
+          // Quick add lives in a cell, so the board has to be on screen for it.
+          setTodayOpen(false)
           if (collapsedIds.has(first.id)) toggleCollapsed(first.id)
           setQuickAddCell(cellId(first.id, 'backlog'))
           return
@@ -503,7 +533,8 @@ export default function App() {
           else if (selectedId) setSelectedId(null)
           else if (query) setQuery('')
           else if (defconFilter.length > 0) setDefconFilter([])
-          else clearFocus()
+          else if (focusedIds.size > 0) clearFocus()
+          else setTodayOpen(false)
           return
         default:
           return
@@ -522,6 +553,7 @@ export default function App() {
     visibleProjects,
     sortedProjects,
     collapsedIds,
+    focusedIds,
     prefs.density,
     set,
     toggleCollapsed,
@@ -556,6 +588,9 @@ export default function App() {
         doingCount={globals.doing}
         blockedCount={globals.blocked}
         staleCount={globals.stale}
+        todayOpen={todayOpen}
+        todayCount={todayTotal}
+        onToggleToday={() => setTodayOpen((current) => !current)}
         onExport={() => downloadBackup(data)}
         onImport={() => importRef.current?.click()}
         onHelp={() => setHelpOpen(true)}
@@ -606,6 +641,17 @@ export default function App() {
               Speicherort: {mode === 'server' ? 'data/board.json' : 'nur dieser Browser'}
             </span>
           </div>
+        </div>
+      ) : todayOpen ? (
+        <div className="board-scroll">
+          <TodayView
+            sections={todaySections}
+            projectsById={projectsById}
+            selectedId={selectedId}
+            focused={focusedIds.size > 0}
+            onSelect={setSelectedId}
+            onOpen={setTaskDialogId}
+          />
         </div>
       ) : (
         <DndContext
