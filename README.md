@@ -82,6 +82,10 @@ has its own opinion about what is urgent, but it does respect the project focus.
 Selection and the usual keys (<kbd>1</kbd>–<kbd>5</kbd>, <kbd>e</kbd>,
 <kbd>x</kbd>, <kbd>Backspace</kbd>) work exactly as on the board.
 
+<div align="center">
+<img src="docs/images/today.png" alt="The Today list: four groups — Overdue, Due today, In progress and Hot — each task on one row with its DEFCON badge, checklist tally, due date, idle time, status and project" width="100%">
+</div>
+
 ### A density switch that actually earns its keep
 
 Press <kbd>d</kbd> for compact mode, and narrow the Done column to just its
