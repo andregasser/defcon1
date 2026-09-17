@@ -24,7 +24,7 @@ npm install
 | Command | Purpose |
 | --- | --- |
 | `npm run dev` | Vite (`:5173`) + API server together, hot reload — use this while coding |
-| `npm test` | Vitest once (87 tests) |
+| `npm test` | Vitest once (89 tests) |
 | `npm run test:watch` | Vitest in watch mode |
 | `npm run typecheck` | `tsc -b --noEmit`, strict |
 | `npm run build` | `tsc -b && vite build` into `dist/` |
@@ -169,11 +169,13 @@ the board: sticky column heads and lane rail, capped cell height with internal
 scrolling, collapsible lanes, compact density, narrow Done, focus via the command
 deck, DEFCON filter and search.
 
-**Project text is never truncated.** Lane name, tile name and the project
-description wrap (`overflow-wrap: anywhere`) instead of ending in an ellipsis or
-a line clamp — a half-read project name or description is worse than a taller
-row. `logic.test.ts` asserts this directly against `index.css`, so if you restyle
-those rules, keep the promise rather than the test.
+**Text on the board is never truncated.** Lane name, tile name, project
+description **and task title** wrap (`overflow-wrap: anywhere`) instead of ending
+in an ellipsis or a line clamp — a half-read title is worse than a taller card.
+Compact density makes cards tighter (padding, line height), never shorter than
+their content; there is deliberately no `white-space: nowrap` on `.card-title` in
+any density. `logic.test.ts` asserts this directly against `index.css`, so if you
+restyle those rules, keep the promise rather than the test.
 
 The board is **one flat CSS grid**: a lane header and its five cells are
 siblings, not nested in a per-lane wrapper. Tests walk `nextElementSibling` to

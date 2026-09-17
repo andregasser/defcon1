@@ -41,14 +41,14 @@
 [data-density='comfort'] {
   --cell-max: 348px;
   --cell-min: 60px;
-  --card-py: 7px;
+  --card-py: 8px;
   --card-fs: 13px;
   --lane-py: 10px;
 }
 [data-density='compact'] {
   --cell-max: 208px;
   --cell-min: 44px;
-  --card-py: 3px;
+  --card-py: 5px;
   --card-fs: 12px;
   --lane-py: 6px;
 }
@@ -942,7 +942,9 @@ select {
   display: flex;
   align-items: flex-start;
   gap: 7px;
-  padding: var(--card-py) 7px var(--card-py) 8px;
+  /* A touch more air than the border needs: the left value also swallows the
+     3px DEFCON stripe, so the text keeps the same inset on both sides. */
+  padding: var(--card-py) 10px var(--card-py) 12px;
   background: var(--bg-2);
   border: 1px solid var(--line-1);
   border-radius: 5px;
@@ -991,14 +993,18 @@ select {
   gap: 3px;
 }
 
+/**
+ * Task text is never cut off — not in compact density either. A title wraps over
+ * as many lines as it needs; long unbroken strings (URLs, ticket keys) break
+ * mid-word rather than escaping the card.
+ */
 .card-title {
   overflow-wrap: anywhere;
 }
 
-[data-density='compact'] .card-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* Wrapped lines sit a hair tighter when many lanes share the screen. */
+[data-density='compact'] .card {
+  line-height: 1.3;
 }
 
 .card-meta {
@@ -1050,18 +1056,6 @@ select {
   color: var(--fg-2);
   font-family: var(--mono);
   font-size: 10px;
-}
-
-.card-project {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--fg-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
 }
 
 .drag-overlay .card {

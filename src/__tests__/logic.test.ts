@@ -615,12 +615,13 @@ function cssBlock(css: string, selector: string): string {
   return css.slice(start, css.indexOf('}', start))
 }
 
-describe('project text is never truncated', () => {
-  // Whether a project name or description fits is decided in CSS alone, so this
-  // is the only place where the promise "you always see all of it" can be kept.
+describe('text on the board is never truncated', () => {
+  // Whether a project name, a description or a task title fits is decided in CSS
+  // alone, so this is the only place where the promise "you always see all of it"
+  // can be kept.
   const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8')
 
-  for (const selector of ['.lane-name', '.tile-name', '.tile-desc']) {
+  for (const selector of ['.lane-name', '.tile-name', '.tile-desc', '.card-title']) {
     it(`${selector} wraps instead of cutting off`, () => {
       const block = cssBlock(css, selector)
       assert.ok(!block.includes('text-overflow: ellipsis'), `${selector} truncates`)
@@ -629,6 +630,14 @@ describe('project text is never truncated', () => {
       assert.ok(block.includes('overflow-wrap: anywhere'), `${selector} cannot break a long word`)
     })
   }
+
+  it('has no density override that clamps a card title', () => {
+    // Compact density used to squeeze titles onto one line with an ellipsis.
+    // Any rule that mentions .card-title has to leave the wrapping alone.
+    for (const rule of css.matchAll(/[^\n}]*\.card-title[^{]*\{[^}]*\}/g)) {
+      assert.doesNotMatch(rule[0], /white-space:\s*nowrap|text-overflow:\s*ellipsis|line-clamp/)
+    }
+  })
 })
 
 /* ------------------------------------------------------------- normalisation */
