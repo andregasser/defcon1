@@ -4,6 +4,7 @@ import { describe, it } from 'vitest'
 import {
   appendIndex,
   cellId,
+  checklistProgress,
   createDemoData,
   groupByCell,
   moveTask,
@@ -12,10 +13,13 @@ import {
   projectStats,
   reorderProject,
   sortProjects,
+  staleDays,
 } from '../lib/board'
-import { daysUntil, formatCountdown, formatDate, parseISODate, todayISO } from '../lib/date'
+import { daysSince, daysUntil, formatCountdown, formatDate, parseISODate, todayISO } from '../lib/date'
 import { parseQuickAdd } from '../lib/quickAdd'
 import { normalizeData, parseBackup } from '../lib/storage'
+import type { TodaySection, TodaySectionId } from '../lib/today'
+import { todayCount, todayList } from '../lib/today'
 import type { Defcon, Project, Status, Task } from '../types'
 
 /* ------------------------------------------------------------------ helpers */
@@ -31,8 +35,22 @@ function task(id: string, projectId: string, status: Status, order: number, defc
     due: null,
     order,
     createdAt: '2026-01-01T00:00:00.000Z',
+    statusSince: '2026-01-01T00:00:00.000Z',
     doneAt: null,
+    checklist: [],
   }
+}
+
+/** A task that entered its current status `days` ago. */
+function aged(
+  id: string,
+  status: Status,
+  days: number,
+  now = new Date(),
+  defcon: Defcon = 4,
+): Task {
+  const since = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days, 9)
+  return { ...task(id, 'p1', status, 0, defcon), statusSince: since.toISOString() }
 }
 
 function project(id: string, order: number, deadline: string | null = null): Project {
@@ -115,6 +133,21 @@ describe('moveTask', () => {
 
     const back = moveTask(done, 'a', 'p1', 'todo', 0)
     assert.equal(back.find((t) => t.id === 'a')?.doneAt, null)
+  })
+
+  it('restarts the status clock only on a real column change', () => {
+    const old = '2026-01-01T00:00:00.000Z'
+
+    const moved = moveTask(base, 'a', 'p1', 'doing', 0).find((t) => t.id === 'a')
+    assert.notEqual(moved?.statusSince, old, 'Spaltenwechsel muss die Uhr neu starten')
+
+    // Reordering inside the cell, or handing the card to another project, does
+    // not change how long it has been waiting.
+    const reordered = moveTask(base, 'a', 'p1', 'todo', 2).find((t) => t.id === 'a')
+    assert.equal(reordered?.statusSince, old)
+
+    const handedOver = moveTask(base, 'a', 'p2', 'todo', 0).find((t) => t.id === 'a')
+    assert.equal(handedOver?.statusSince, old)
   })
 
   it('clamps out-of-range indexes instead of creating holes', () => {
@@ -203,6 +236,11 @@ describe('projectStats', () => {
     assert.equal(stats.topDefcon, 1)
   })
 
+  it('counts tasks that stopped moving', () => {
+    const stuck = [aged('a', 'blocked', 6), aged('b', 'doing', 1), aged('c', 'done', 30)]
+    assert.equal(projectStats(stuck, 'p1').stale, 1)
+  })
+
   it('ignores done tasks for urgency', () => {
     const stats = projectStats([task('x', 'p3', 'done', 0, 1)], 'p3')
     assert.equal(stats.topDefcon, null)
@@ -212,6 +250,124 @@ describe('projectStats', () => {
 
   it('reports 0% for an empty project instead of dividing by zero', () => {
     assert.equal(projectStats([], 'p9').percent, 0)
+  })
+})
+
+/* -------------------------------------------------------------------- aging */
+
+describe('staleDays', () => {
+  it('waits for the per-status threshold before complaining', () => {
+    // In Progress is allowed three days, Blocked only two.
+    assert.equal(staleDays(aged('a', 'doing', 2)), null)
+    assert.equal(staleDays(aged('a', 'doing', 3)), 3)
+    assert.equal(staleDays(aged('a', 'blocked', 1)), null)
+    assert.equal(staleDays(aged('a', 'blocked', 2)), 2)
+    assert.equal(staleDays(aged('a', 'blocked', 9)), 9)
+  })
+
+  it('ignores columns where waiting is normal', () => {
+    assert.equal(staleDays(aged('a', 'backlog', 400)), null)
+    assert.equal(staleDays(aged('a', 'todo', 400)), null)
+  })
+
+  it('never marks a done task as stuck', () => {
+    assert.equal(staleDays(aged('a', 'done', 90)), null)
+  })
+
+  it('survives a missing or malformed timestamp', () => {
+    assert.equal(staleDays({ ...aged('a', 'blocked', 5), statusSince: '' }), null)
+    assert.equal(staleDays({ ...aged('a', 'blocked', 5), statusSince: 'gestern' }), null)
+  })
+})
+
+/* --------------------------------------------------------------- checklist */
+
+describe('checklistProgress', () => {
+  /** A task with `done` of `total` steps ticked. */
+  const withSteps = (done: number, total: number): Task => ({
+    ...task('t1', 'p1', 'todo', 0),
+    checklist: Array.from({ length: total }, (_, index) => ({
+      id: `c${index}`,
+      text: `Schritt ${index + 1}`,
+      done: index < done,
+    })),
+  })
+
+  it('stays silent for a task without steps', () => {
+    // Nothing to show beats a defeated 0/0.
+    assert.equal(checklistProgress(task('t1', 'p1', 'todo', 0)), null)
+  })
+
+  it('counts the ticked steps and rounds the percentage', () => {
+    assert.deepEqual(checklistProgress(withSteps(0, 4)), { done: 0, total: 4, percent: 0 })
+    assert.deepEqual(checklistProgress(withSteps(1, 3)), { done: 1, total: 3, percent: 33 })
+    assert.deepEqual(checklistProgress(withSteps(2, 3)), { done: 2, total: 3, percent: 67 })
+    assert.deepEqual(checklistProgress(withSteps(5, 5)), { done: 5, total: 5, percent: 100 })
+  })
+})
+
+/* ------------------------------------------------------------- heute-liste */
+
+describe('todayList', () => {
+  const now = new Date(2026, 2, 10, 9)
+  const day = (offset: number) => todayISO(new Date(2026, 2, 10 + offset))
+
+  /** `task()` with a due date, so the sections can be told apart. */
+  const due = (id: string, status: Status, defcon: Defcon, offset: number | null): Task => ({
+    ...task(id, 'p1', status, 0, defcon),
+    due: offset === null ? null : day(offset),
+  })
+
+  const ids = (sections: TodaySection[], id: TodaySectionId) =>
+    sections.find((section) => section.id === id)?.tasks.map((t) => t.id) ?? []
+
+  it('files every task under exactly one heading', () => {
+    const sections = todayList(
+      [
+        due('late', 'doing', 4, -2),
+        due('now', 'todo', 4, 0),
+        due('running', 'doing', 4, null),
+        due('burning', 'backlog', 1, null),
+        due('later', 'todo', 4, 5),
+      ],
+      now,
+    )
+
+    // "late" is overdue and in progress; the sharper reason wins.
+    assert.deepEqual(ids(sections, 'overdue'), ['late'])
+    assert.deepEqual(ids(sections, 'today'), ['now'])
+    assert.deepEqual(ids(sections, 'doing'), ['running'])
+    assert.deepEqual(ids(sections, 'hot'), ['burning'])
+
+    // Nothing appears twice, and a calm task due next week stays off the list.
+    assert.equal(todayCount(sections), 4)
+  })
+
+  it('leaves finished work out', () => {
+    const sections = todayList([due('shipped', 'done', 1, -3)], now)
+    assert.deepEqual(sections, [])
+    assert.equal(todayCount(sections), 0)
+  })
+
+  it('sorts the overdue block by date and the rest by DEFCON', () => {
+    const sections = todayList(
+      [
+        due('older', 'todo', 5, -9),
+        due('recent', 'todo', 1, -1),
+        due('calm', 'todo', 4, 0),
+        due('urgent', 'todo', 2, 0),
+      ],
+      now,
+    )
+
+    // Overdue: the longest-forgotten first, whatever its level.
+    assert.deepEqual(ids(sections, 'overdue'), ['older', 'recent'])
+    // Everything else: the most urgent level first.
+    assert.deepEqual(ids(sections, 'today'), ['urgent', 'calm'])
+  })
+
+  it('says nothing at all when nothing is pressing', () => {
+    assert.deepEqual(todayList([due('quiet', 'backlog', 4, 30), due('idle', 'todo', 3, null)], now), [])
   })
 })
 
@@ -354,6 +510,16 @@ describe('date helpers', () => {
     assert.equal(daysUntil('2026-09-10', from), -7)
   })
 
+  it('counts whole days since a timestamp', () => {
+    const from = new Date(2026, 8, 17, 7, 15)
+    // Late yesterday evening is "1 T" this morning: calendar days, not hours.
+    assert.equal(daysSince(new Date(2026, 8, 16, 22, 40).toISOString(), from), 1)
+    assert.equal(daysSince(new Date(2026, 8, 17, 6, 0).toISOString(), from), 0)
+    assert.equal(daysSince(new Date(2026, 8, 10, 12, 0).toISOString(), from), 7)
+    assert.equal(daysSince(null, from), null)
+    assert.equal(daysSince('irgendwann', from), null)
+  })
+
   it('describes the countdown in German', () => {
     const now = new Date()
     const inDays = (n: number) =>
@@ -401,6 +567,51 @@ describe('normalizeData', () => {
     assert.equal(result.projects[0].deadline, null)
     assert.equal(result.tasks[0].defcon, 4)
     assert.equal(result.tasks[0].due, null)
+  })
+
+  it('dates the status back to creation for boards without the field', () => {
+    const result = normalizeData({
+      projects: [{ id: 'p1' }],
+      tasks: [{ id: 't1', projectId: 'p1', createdAt: '2026-02-03T10:00:00.000Z' }],
+    })
+    assert.equal(result.tasks[0].statusSince, '2026-02-03T10:00:00.000Z')
+  })
+
+  it('repairs a checklist and throws away nameless steps', () => {
+    const result = normalizeData({
+      projects: [{ id: 'p1' }],
+      tasks: [
+        {
+          id: 't1',
+          projectId: 'p1',
+          checklist: [
+            { id: 'c1', text: 'Schritt eins', done: true },
+            { text: '  Schritt zwei  ' },
+            { id: 'c3', text: '   ' },
+            null,
+            { id: 'c4', text: 'Schritt drei', done: 'ja' },
+          ],
+        },
+        { id: 't2', projectId: 'p1', checklist: 'kaputt' },
+      ],
+    })
+
+    const steps = result.tasks[0].checklist
+    assert.deepEqual(
+      steps.map((item) => [item.text, item.done]),
+      [
+        ['Schritt eins', true],
+        ['Schritt zwei', false],
+        // A non-boolean "done" is not a yes.
+        ['Schritt drei', false],
+      ],
+    )
+    // Every step needs an id, even the one that arrived without.
+    assert.ok(steps.every((item) => item.id !== ''))
+    assert.equal(new Set(steps.map((item) => item.id)).size, 3)
+
+    // Boards from before the checklist existed just get an empty one.
+    assert.deepEqual(result.tasks[1].checklist, [])
   })
 
   it('gives every done task a doneAt timestamp', () => {

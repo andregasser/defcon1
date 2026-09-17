@@ -1,6 +1,6 @@
-import { DEFAULT_DEFCON, PROJECT_COLORS, STATUS_IDS } from '../constants'
-import type { BoardData, Defcon, LaneSort, Project, Status, Task } from '../types'
-import { daysUntil, nowISO, todayISO } from './date'
+import { DEFAULT_DEFCON, PROJECT_COLORS, STALE_AFTER_DAYS, STATUS_IDS } from '../constants'
+import type { BoardData, ChecklistItem, Defcon, LaneSort, Project, Status, Task } from '../types'
+import { daysSince, daysUntil, nowISO, todayISO } from './date'
 
 export function uid(prefix = 'id'): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -69,6 +69,10 @@ export function moveTask(
     ...task,
     projectId: toProjectId,
     status: toStatus,
+    // Only a real status change restarts the clock. Reordering inside a cell or
+    // handing the task to another project does not: it has been waiting just
+    // as long as before.
+    statusSince: toStatus === task.status ? task.statusSince : nowISO(),
     doneAt: toStatus === 'done' ? (task.doneAt ?? nowISO()) : null,
   }
 
@@ -135,8 +139,33 @@ export function createTask(
     due: extra.due ?? null,
     order,
     createdAt: nowISO(),
+    statusSince: nowISO(),
     doneAt: status === 'done' ? nowISO() : null,
+    checklist: [],
   }
+}
+
+/* --------------------------------------------------------------- checklist */
+
+export interface ChecklistProgress {
+  done: number
+  total: number
+  percent: number
+}
+
+/**
+ * Progress over a task's steps, or null when there are none — a task without a
+ * checklist should show nothing at all rather than a defeated `0/0`.
+ */
+export function checklistProgress(task: Task): ChecklistProgress | null {
+  const total = task.checklist.length
+  if (total === 0) return null
+  const done = task.checklist.filter((item) => item.done).length
+  return { done, total, percent: Math.round((done / total) * 100) }
+}
+
+export function createChecklistItem(text: string): ChecklistItem {
+  return { id: uid('c'), text, done: false }
 }
 
 export function createProject(name: string, order: number, colorSeed = order): Project {
@@ -147,6 +176,22 @@ export function createProject(name: string, order: number, colorSeed = order): P
     deadline: null,
     order,
   }
+}
+
+/* ------------------------------------------------------------------- aging */
+
+/**
+ * How many days the task has been sitting in its current status — but only once
+ * that crosses the threshold for the status, otherwise null. A card that is
+ * simply young is not news; one that stopped moving is.
+ *
+ * Done tasks never go stale: they are finished, not stuck.
+ */
+export function staleDays(task: Task, from = new Date()): number | null {
+  const limit = STALE_AFTER_DAYS[task.status]
+  if (limit === undefined) return null
+  const days = daysSince(task.statusSince, from)
+  return days !== null && days >= limit ? days : null
 }
 
 /* ------------------------------------------------------------------- stats */
@@ -161,20 +206,23 @@ export interface ProjectStats {
   hot: number
   /** Open tasks past their due date. */
   overdue: number
+  /** Open tasks that have not moved for too long — see `staleDays`. */
+  stale: number
   /** 0–100. */
   percent: number
   /** Lowest (= most urgent) DEFCON level among open tasks, or null. */
   topDefcon: Defcon | null
 }
 
-export function projectStats(tasks: Task[], projectId: string): ProjectStats {
-  const today = todayISO()
+export function projectStats(tasks: Task[], projectId: string, from = new Date()): ProjectStats {
+  const today = todayISO(from)
   let total = 0
   let done = 0
   let doing = 0
   let blocked = 0
   let hot = 0
   let overdue = 0
+  let stale = 0
   let topDefcon: Defcon | null = null
 
   for (const task of tasks) {
@@ -188,6 +236,7 @@ export function projectStats(tasks: Task[], projectId: string): ProjectStats {
     if (task.status === 'blocked') blocked += 1
     if (task.defcon <= 2) hot += 1
     if (task.due && task.due < today) overdue += 1
+    if (staleDays(task, from) !== null) stale += 1
     if (topDefcon === null || task.defcon < topDefcon) topDefcon = task.defcon
   }
 
@@ -199,6 +248,7 @@ export function projectStats(tasks: Task[], projectId: string): ProjectStats {
     blocked,
     hot,
     overdue,
+    stale,
     percent: total === 0 ? 0 : Math.round((done / total) * 100),
     topDefcon,
   }
@@ -243,28 +293,53 @@ export function createDemoData(): BoardData {
   const today = new Date()
   const inDays = (n: number) =>
     todayISO(new Date(today.getFullYear(), today.getMonth(), today.getDate() + n))
+  /** Backdates `statusSince` so the demo board also shows the aging chips. */
+  const daysAgo = (n: number) =>
+    new Date(today.getFullYear(), today.getMonth(), today.getDate() - n, 9).toISOString()
 
+  /** `[status, title, defcon, due, days in that status, [step, erledigt][]]` */
   const specs: Array<{
     name: string
     deadline: string | null
-    tasks: Array<[Status, string, Defcon, string | null]>
+    tasks: Array<[Status, string, Defcon, string | null, number?, Array<[string, boolean]>?]>
   }> = [
     {
       name: 'Migration Cloud',
       deadline: inDays(21),
       tasks: [
-        ['doing', 'Terraform-Module refactoren', 2, inDays(2)],
-        ['blocked', 'Netzwerk-Freigabe Firewall', 1, inDays(-1)],
-        ['todo', 'Runbook schreiben', 4, inDays(9)],
+        ['doing', 'Terraform-Module refactoren', 2, inDays(2), 1],
+        ['blocked', 'Netzwerk-Freigabe Firewall', 1, inDays(-1), 6],
+        [
+          'todo',
+          'Runbook schreiben',
+          4,
+          inDays(9),
+          0,
+          [
+            ['Ablauf skizzieren', true],
+            ['Rollback beschreiben', false],
+            ['Review mit Ops', false],
+          ],
+        ],
         ['backlog', 'Kostenmodell prüfen', 5, null],
-        ['done', 'Landing Zone aufgesetzt', 3, null],
+        [
+          'done',
+          'Landing Zone aufgesetzt',
+          3,
+          null,
+          0,
+          [
+            ['Accounts angelegt', true],
+            ['Guardrails aktiv', true],
+          ],
+        ],
       ],
     },
     {
       name: 'Reporting Q4',
       deadline: inDays(5),
       tasks: [
-        ['doing', 'Kennzahlen abstimmen', 2, inDays(1)],
+        ['doing', 'Kennzahlen abstimmen', 2, inDays(1), 4],
         ['todo', 'Dashboard-Layout finalisieren', 3, inDays(3)],
         ['done', 'Datenquellen inventarisiert', 4, null],
       ],
@@ -288,10 +363,15 @@ export function createDemoData(): BoardData {
     projects.push(project)
 
     const perStatus = new Map<Status, number>()
-    for (const [status, title, defcon, due] of spec.tasks) {
+    for (const [status, title, defcon, due, sinceDays = 0, steps = []] of spec.tasks) {
       const order = perStatus.get(status) ?? 0
       perStatus.set(status, order + 1)
-      tasks.push(createTask(project.id, status, title, order, { defcon, due }))
+      const task = createTask(project.id, status, title, order, { defcon, due })
+      tasks.push({
+        ...task,
+        statusSince: sinceDays > 0 ? daysAgo(sinceDays) : task.statusSince,
+        checklist: steps.map(([text, done]) => ({ ...createChecklistItem(text), done })),
+      })
     }
   })
 

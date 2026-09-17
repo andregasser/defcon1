@@ -19,6 +19,12 @@ interface Props {
   openCount: number
   doingCount: number
   blockedCount: number
+  /** Open tasks that stopped moving — see `staleDays`. */
+  staleCount: number
+  todayOpen: boolean
+  /** Tasks on the Heute list, across all projects. */
+  todayCount: number
+  onToggleToday: () => void
   onExport: () => void
   onImport: () => void
   onHelp: () => void
@@ -54,6 +60,10 @@ export function TopBar({
   openCount,
   doingCount,
   blockedCount,
+  staleCount,
+  todayOpen,
+  todayCount,
+  onToggleToday,
   onExport,
   onImport,
   onHelp,
@@ -142,6 +152,19 @@ export function TopBar({
       </div>
 
       <div className="topbar-row">
+        <button
+          type="button"
+          className="chip"
+          aria-pressed={todayOpen}
+          onClick={onToggleToday}
+          title="Heute-Ansicht über alle Projekte: überfällig, heute fällig, in Arbeit, DEFCON 1–2 (t)"
+        >
+          Heute
+          {todayCount > 0 && <b>{todayCount}</b>}
+        </button>
+
+        <span className="divider" />
+
         <span className="micro">Defcon</span>
         {DEFCON_LEVELS.map((level) => {
           const meta = DEFCON_BY_LEVEL[level]
@@ -224,8 +247,9 @@ export function TopBar({
 
         <span className="spacer" />
 
-        <span className="micro">
+        <span className="micro" title="Stehengelassen: zu lange unverändert in In Progress oder Blocked">
           {openCount} offen · {doingCount} laufen · {blockedCount} blockiert
+          {staleCount > 0 && ` · ${staleCount} stehen`}
         </span>
       </div>
     </header>

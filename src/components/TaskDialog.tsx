@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { DEFCONS, STATUSES } from '../constants'
+import { checklistProgress, createChecklistItem } from '../lib/board'
 import { vars } from '../lib/css'
 import { todayISO } from '../lib/date'
-import type { Defcon, Project, Status, Task } from '../types'
+import type { ChecklistItem, Defcon, Project, Status, Task } from '../types'
 import { DefconBadge } from './DefconBadge'
 import { Dialog } from './Dialog'
 
@@ -26,10 +27,32 @@ export function TaskDialog({ task, projects, onSave, onDelete, onClose }: Props)
   const [due, setDue] = useState(task.due ?? '')
   const [projectId, setProjectId] = useState(task.projectId)
   const [status, setStatus] = useState<Status>(task.status)
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(task.checklist)
+  const [draft, setDraft] = useState('')
+
+  const progress = checklistProgress({ ...task, checklist })
+
+  const addDraft = () => {
+    const text = draft.trim()
+    if (text === '') return
+    setChecklist((current) => [...current, createChecklistItem(text)])
+    setDraft('')
+  }
+
+  const patchItem = (id: string, patch: Partial<ChecklistItem>) => {
+    setChecklist((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)))
+  }
 
   const submit = () => {
     const trimmed = title.trim()
     if (trimmed === '') return
+    // A step still sitting in the add field counts: nobody types it in order to
+    // throw it away. Emptied steps are dropped instead of saved as blank rows.
+    const pending = draft.trim()
+    const steps = [...checklist, ...(pending === '' ? [] : [createChecklistItem(pending)])]
+      .map((item) => ({ ...item, text: item.text.trim() }))
+      .filter((item) => item.text !== '')
+
     onSave(task.id, {
       title: trimmed,
       note: note.trim(),
@@ -37,6 +60,7 @@ export function TaskDialog({ task, projects, onSave, onDelete, onClose }: Props)
       due: due === '' ? null : due,
       projectId,
       status,
+      checklist: steps,
     })
     onClose()
   }
@@ -156,6 +180,70 @@ export function TaskDialog({ task, projects, onSave, onDelete, onClose }: Props)
             </button>
             <button type="button" className="btn sm" onClick={() => setDue('')}>
               leeren
+            </button>
+          </div>
+        </div>
+
+        <div className="field">
+          <label htmlFor="task-check-add">
+            Checkliste
+            {progress && (
+              <span className="check-progress">
+                {progress.done}/{progress.total} · {progress.percent}%
+              </span>
+            )}
+          </label>
+
+          {checklist.length > 0 && (
+            <ul className="check-list">
+              {checklist.map((item, index) => (
+                <li key={item.id} className="check-item" data-done={item.done}>
+                  <input
+                    type="checkbox"
+                    checked={item.done}
+                    aria-label={`${item.text} abhaken`}
+                    onChange={(event) => patchItem(item.id, { done: event.target.checked })}
+                  />
+                  <input
+                    type="text"
+                    value={item.text}
+                    aria-label={`Schritt ${index + 1}`}
+                    onChange={(event) => patchItem(item.id, { text: event.target.value })}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') event.preventDefault()
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn icon sm"
+                    onClick={() => setChecklist((c) => c.filter((other) => other.id !== item.id))}
+                    title="Schritt entfernen"
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="check-add">
+            <input
+              id="task-check-add"
+              type="text"
+              value={draft}
+              placeholder="Schritt hinzufügen …"
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                // Enter keeps the field open for the next step instead of saving
+                // the task: a checklist is usually written in one go.
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  addDraft()
+                }
+              }}
+            />
+            <button type="button" className="btn sm" onClick={addDraft}>
+              Hinzufügen
             </button>
           </div>
         </div>

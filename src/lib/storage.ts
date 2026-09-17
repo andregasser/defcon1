@@ -6,7 +6,8 @@ import {
   PROJECT_COLORS,
   STATUS_IDS,
 } from '../constants'
-import type { BoardData, Defcon, Prefs, Project, Status, Task } from '../types'
+import type { BoardData, ChecklistItem, Defcon, Prefs, Project, Status, Task } from '../types'
+import { uid } from './board'
 import { nowISO } from './date'
 
 export interface RemoteState {
@@ -42,6 +43,23 @@ function asStatus(value: unknown): Status {
 }
 
 /**
+ * Boards written before the checklist existed simply have no field, and a
+ * hand-edited one may carry entries without an id. Empty steps are dropped:
+ * a nameless checkbox is noise, not data.
+ */
+function asChecklist(value: unknown): ChecklistItem[] {
+  if (!Array.isArray(value)) return []
+  const items: ChecklistItem[] = []
+  for (const entry of value) {
+    const item = (entry ?? {}) as Partial<ChecklistItem>
+    const text = asString(item.text).trim()
+    if (!text) continue
+    items.push({ id: asString(item.id) || uid('c'), text, done: item.done === true })
+  }
+  return items
+}
+
+/**
  * Repairs whatever we got — an older file version, a hand-edited board.json, a
  * half-written import — into a shape the UI can render without crashing.
  * Anything unsalvageable (a task with no id or no project) is dropped.
@@ -70,6 +88,7 @@ export function normalizeData(raw: unknown): BoardData {
     const task = (item ?? {}) as Partial<Task>
     if (!task.id || !task.projectId || !knownProjects.has(String(task.projectId))) return
     const status = asStatus(task.status)
+    const createdAt = asString(task.createdAt, nowISO())
     tasks.push({
       id: String(task.id),
       projectId: String(task.projectId),
@@ -79,8 +98,12 @@ export function normalizeData(raw: unknown): BoardData {
       defcon: asDefcon(task.defcon),
       due: asDate(task.due),
       order: Number.isFinite(task.order) ? Number(task.order) : index,
-      createdAt: asString(task.createdAt, nowISO()),
+      createdAt,
+      // Boards written before the aging chip existed have no timestamp: fall
+      // back to creation, which is the earliest the task can have been here.
+      statusSince: asString(task.statusSince) || createdAt,
       doneAt: status === 'done' ? asString(task.doneAt, nowISO()) : null,
+      checklist: asChecklist(task.checklist),
     })
   })
 

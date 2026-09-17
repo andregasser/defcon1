@@ -17,6 +17,20 @@ export const STATUSES: StatusMeta[] = [
 
 export const STATUS_IDS: Status[] = STATUSES.map((s) => s.id)
 
+export const STATUS_BY_ID: Record<Status, StatusMeta> = Object.fromEntries(
+  STATUSES.map((s) => [s.id, s]),
+) as Record<Status, StatusMeta>
+
+/**
+ * After this many days without movement a task counts as "stehengelassen".
+ * Only the two columns where standing still is the actual problem are watched:
+ * work that stopped moving, and a block nobody chased.
+ */
+export const STALE_AFTER_DAYS: Partial<Record<Status, number>> = {
+  doing: 3,
+  blocked: 2,
+}
+
 export interface DefconMeta {
   level: Defcon
   color: string

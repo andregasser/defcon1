@@ -371,6 +371,11 @@ select {
   color: var(--fg-0);
 }
 
+.chip b {
+  color: var(--fg-0);
+  font-weight: 600;
+}
+
 .chip-swatch {
   width: 8px;
   height: 8px;
@@ -641,6 +646,11 @@ select {
   background: rgba(10, 132, 255, 0.13);
   border-color: rgba(10, 132, 255, 0.36);
   color: #9fcbff;
+}
+.badge[data-tone='stale'] {
+  background: rgba(191, 90, 242, 0.13);
+  border-color: rgba(191, 90, 242, 0.36);
+  color: #dcaaff;
 }
 .badge[data-tone='muted'] {
   background: transparent;
@@ -1029,6 +1039,34 @@ select {
   color: var(--fg-1);
 }
 
+/* Time standing still: the card has not moved for too long. */
+.stale {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  color: #dcaaff;
+  white-space: nowrap;
+}
+
+/* Checklist progress: how much of the task itself is already behind you. */
+.steps {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  color: var(--fg-2);
+  white-space: nowrap;
+}
+
+.steps[data-complete='true'] {
+  color: var(--green);
+}
+
 .note-dot {
   color: var(--fg-2);
   font-family: var(--mono);
@@ -1139,6 +1177,138 @@ select {
   text-align: center;
   color: var(--fg-2);
   grid-column: 1 / -1;
+}
+
+/* ------------------------------------------------------------ heute-liste */
+
+.today {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 16px 16px 28px;
+  max-width: 980px;
+}
+
+.today-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.today-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px 5px;
+  border-bottom: 1px solid var(--line-1);
+  margin-bottom: 2px;
+}
+
+.today-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-0);
+}
+
+.today-label[data-section='overdue'] {
+  color: var(--red);
+}
+.today-label[data-section='today'] {
+  color: var(--amber);
+}
+.today-label[data-section='doing'] {
+  color: var(--blue);
+}
+.today-label[data-section='hot'] {
+  color: var(--yellow);
+}
+
+.today-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 6px 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-1);
+  border-radius: 5px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.today-row:hover {
+  background: var(--bg-3);
+  border-color: var(--line-2);
+}
+
+.today-row[data-selected='true'] {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px rgba(10, 132, 255, 0.5);
+}
+
+.today-row::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--dc-color);
+}
+
+.today-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.today-project {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+
+.today-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--row-color);
+}
+
+.today-foot {
+  padding-top: 2px;
+}
+
+.today-empty {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--fg-1);
+  line-height: 1.55;
+}
+
+.today-empty p {
+  margin: 0;
+  max-width: 440px;
 }
 
 /* ----------------------------------------------------------------- dialog */
@@ -1306,6 +1476,62 @@ select {
   gap: 5px;
   flex-wrap: wrap;
   margin-top: 2px;
+}
+
+/* --------------------------------------------------------- checklist editor */
+
+.check-progress {
+  margin-left: 8px;
+  color: var(--fg-1);
+  text-transform: none;
+  letter-spacing: 0.03em;
+}
+
+.check-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.check-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.check-item input[type='checkbox'] {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  accent-color: var(--green);
+  cursor: pointer;
+}
+
+.check-item input[type='text'] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* A ticked step steps back visually — it is history, not work. */
+.check-item[data-done='true'] input[type='text'] {
+  color: var(--fg-2);
+  text-decoration: line-through;
+  text-decoration-color: var(--line-3);
+}
+
+.check-add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.check-add input[type='text'] {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 /* -------------------------------------------------------------------- help */

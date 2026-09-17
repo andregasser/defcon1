@@ -91,6 +91,77 @@ describe('App', () => {
     assert.deepEqual(laneNames, ['Reporting Q4', 'Migration Cloud', 'Onboarding Tool'])
   })
 
+  it('marks a card that has not moved for too long', async () => {
+    await renderWithDemo()
+
+    // The demo board parks the firewall approval in Blocked for six days.
+    const card = cardByTitle('Netzwerk-Freigabe Firewall')
+    const chip = within(card).getByTitle(/Liegt seit 6 Tagen/)
+    assert.match(chip.textContent ?? '', /6 T/)
+
+    // A task that only entered its column yesterday stays quiet.
+    assert.equal(within(cardByTitle('Terraform-Module refactoren')).queryByTitle(/Liegt seit/), null)
+  })
+
+  it('opens the Heute list across all projects and back again', async () => {
+    await renderWithDemo()
+
+    // The chip counts before it is even opened: one overdue, two in progress.
+    const chip = screen.getByRole('button', { name: /^Heute/ })
+    assert.match(chip.textContent ?? '', /3$/)
+
+    fireEvent.keyDown(window, { key: 't' })
+
+    const list = await waitFor(() => {
+      const node = document.querySelector('.today')
+      assert.ok(node, 'Heute-Ansicht fehlt')
+      return node as HTMLElement
+    })
+
+    // Grouped by pressure, not by project — and the board is out of the way.
+    assert.deepEqual(
+      Array.from(list.querySelectorAll('.today-label')).map((el) => el.textContent),
+      ['Überfällig', 'In Arbeit'],
+    )
+    assert.equal(document.querySelectorAll('.lane-head').length, 0)
+
+    const overdue = list.querySelector('.today-group') as HTMLElement
+    assert.ok(within(overdue).getByText('Netzwerk-Freigabe Firewall'))
+    // Every row names its project, because the swimlane no longer does.
+    assert.ok(within(overdue).getByText('Migration Cloud'))
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    await waitFor(() => {
+      assert.equal(document.querySelectorAll('.lane-head').length, 3)
+    })
+  })
+
+  it('tracks the checklist of a task on its card', async () => {
+    const user = await renderWithDemo()
+
+    // The demo runbook arrives with one of three steps ticked.
+    const card = cardByTitle('Runbook schreiben')
+    assert.match(within(card).getByTitle(/1 von 3 Schritten/).textContent ?? '', /1\/3/)
+
+    await user.dblClick(card)
+    await screen.findByRole('dialog', { name: 'Task bearbeiten' })
+
+    await user.click(screen.getByLabelText('Rollback beschreiben abhaken'))
+    await user.type(screen.getByPlaceholderText('Schritt hinzufügen …'), 'Freigabe einholen{Enter}')
+    await user.click(screen.getByRole('button', { name: 'Speichern' }))
+
+    await waitFor(() => {
+      const updated = cardByTitle('Runbook schreiben')
+      assert.match(within(updated).getByTitle(/2 von 4 Schritten/).textContent ?? '', /2\/4/)
+    })
+
+    // A fully ticked list reads as complete rather than as work in progress.
+    const finished = within(cardByTitle('Landing Zone aufgesetzt')).getByTitle(
+      /2 von 2 Schritten/,
+    )
+    assert.equal(finished.dataset.complete, 'true')
+  })
+
   it('creates a task from the quick-add mini syntax', async () => {
     const user = await renderWithDemo()
 

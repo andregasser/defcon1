@@ -30,6 +30,21 @@ export function daysUntil(iso: string | null | undefined, from = new Date()): nu
   return Math.round((target.getTime() - start.getTime()) / DAY_MS)
 }
 
+/**
+ * Whole calendar days since a timestamp (`createdAt`, `statusSince`). Counted
+ * in days, not hours: something stamped yesterday evening is "1 T" this
+ * morning, which is how one reads a board.
+ */
+export function daysSince(iso: string | null | undefined, from = new Date()): number | null {
+  if (!iso) return null
+  const time = new Date(iso).getTime()
+  if (Number.isNaN(time)) return null
+  const stamp = new Date(time)
+  const start = new Date(stamp.getFullYear(), stamp.getMonth(), stamp.getDate())
+  const today = new Date(from.getFullYear(), from.getMonth(), from.getDate())
+  return Math.round((today.getTime() - start.getTime()) / DAY_MS)
+}
+
 /** Swiss short format: 20.09.2026 */
 export function formatDate(iso: string | null | undefined): string {
   const date = parseISODate(iso)
