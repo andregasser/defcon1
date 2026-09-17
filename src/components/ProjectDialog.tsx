@@ -10,7 +10,12 @@ interface Props {
   project: Project | null
   /** Number of tasks in the project, shown before deleting. */
   taskCount: number
-  onSave: (values: { name: string; deadline: string | null; color: string }) => void
+  onSave: (values: {
+    name: string
+    description: string
+    deadline: string | null
+    color: string
+  }) => void
   onDelete: () => void
   onClose: () => void
 }
@@ -23,6 +28,7 @@ function shiftedToday(days: number): string {
 export function ProjectDialog({ project, taskCount, onSave, onDelete, onClose }: Props) {
   const t = useT()
   const [name, setName] = useState(project?.name ?? '')
+  const [description, setDescription] = useState(project?.description ?? '')
   const [deadline, setDeadline] = useState(project?.deadline ?? '')
   const [color, setColor] = useState(project?.color ?? PROJECT_COLORS[0])
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -30,7 +36,12 @@ export function ProjectDialog({ project, taskCount, onSave, onDelete, onClose }:
   const submit = () => {
     const trimmed = name.trim()
     if (trimmed === '') return
-    onSave({ name: trimmed, deadline: deadline === '' ? null : deadline, color })
+    onSave({
+      name: trimmed,
+      description: description.trim(),
+      deadline: deadline === '' ? null : deadline,
+      color,
+    })
     onClose()
   }
 
@@ -92,6 +103,23 @@ export function ProjectDialog({ project, taskCount, onSave, onDelete, onClose }:
               }
             }}
           />
+        </div>
+
+        <div className="field">
+          <label htmlFor="project-description">{t.projectDialog.descriptionLabel}</label>
+          <textarea
+            id="project-description"
+            value={description}
+            placeholder={t.projectDialog.descriptionPlaceholder}
+            onChange={(event) => setDescription(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault()
+                submit()
+              }
+            }}
+          />
+          <span className="micro">{t.projectDialog.descriptionHint}</span>
         </div>
 
         <div className="field">

@@ -172,6 +172,9 @@ export const en: Dict = {
     titleEdit: 'Edit project',
     nameLabel: 'Project name',
     namePlaceholder: 'e.g. Cloud migration',
+    descriptionLabel: 'Description',
+    descriptionPlaceholder: 'What is this project about?',
+    descriptionHint: 'Shown in full in the project overview.',
     deadlineLabel: 'Deadline',
     plusWeek: '+1 week',
     plusMonth: '+1 month',
@@ -284,6 +287,14 @@ export const en: Dict = {
       sources: 'Data sources inventoried',
       requirements: 'Collect the requirements',
       prototype: 'Sketch the prototype',
+    },
+    descriptions: {
+      cloud:
+        'Lift and shift the three core applications into the new landing zone, including network clearances and the cost model. Signed off by the operations team.',
+      reporting:
+        'Quarterly report for the board: align the key metrics, document the data sources, finish the dashboard before the meeting.',
+      onboarding:
+        'Pre-project for self-service onboarding of new staff. Not approved yet — requirements and a prototype first.',
     },
   },
 }

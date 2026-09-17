@@ -96,6 +96,12 @@ export function CommandDeck({
                   <span className="tile-pct">{stats.percent}%</span>
                 </div>
 
+                {project.description !== '' && (
+                  // In full, never clipped: the deck is where you decide which
+                  // stream to work on, and a half sentence decides nothing.
+                  <p className="tile-desc">{project.description}</p>
+                )}
+
                 <div className="tile-body">
                   <DeadlineChip deadline={project.deadline} />
                   <div className="meter">

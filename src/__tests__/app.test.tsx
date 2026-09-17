@@ -232,6 +232,33 @@ describe('App', () => {
     assert.ok(screen.getAllByText('31.03.2027').length > 0)
   })
 
+  it('records a project description and shows all of it in the deck', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    const text =
+      'Ablösung der Altanwendung inklusive Datenmigration, Schulung aller ' +
+      'Filialen und Abnahme durch die Revision. Läuft über drei Quartale.'
+
+    await user.click(await screen.findByRole('button', { name: 'Erstes Projekt anlegen' }))
+    await user.type(screen.getByLabelText('Projektname'), 'Kernbanken-Release')
+    fireEvent.change(screen.getByLabelText('Beschreibung'), { target: { value: text } })
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }))
+
+    const shown = await waitFor(() => {
+      const node = document.querySelector('.tile-desc')
+      assert.ok(node, 'Keine Beschreibung in der Projektübersicht')
+      return node as HTMLElement
+    })
+    // Every character of it, not a shortened version.
+    assert.equal(shown.textContent, text)
+
+    // And it comes back into the dialog for editing.
+    await user.dblClick(shown.closest('.tile') as HTMLElement)
+    const field = (await screen.findByLabelText('Beschreibung')) as HTMLTextAreaElement
+    assert.equal(field.value, text)
+  })
+
   it('keeps a brand-new project visible while a task filter is active', async () => {
     const user = await renderWithDemo()
 

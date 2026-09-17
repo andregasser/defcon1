@@ -275,7 +275,7 @@ export default function App() {
   )
 
   const saveProject = useCallback(
-    (values: { name: string; deadline: string | null; color: string }) => {
+    (values: { name: string; description: string; deadline: string | null; color: string }) => {
       board.update((current) => {
         if (projectDialogId) {
           return {

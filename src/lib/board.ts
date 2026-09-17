@@ -144,6 +144,7 @@ export function createProject(name: string, order: number, colorSeed = order): P
   return {
     id: uid('p'),
     name,
+    description: '',
     color: PROJECT_COLORS[colorSeed % PROJECT_COLORS.length],
     deadline: null,
     order,
@@ -248,15 +249,17 @@ export function createDemoData(lang: Lang): BoardData {
   const today = new Date()
   const inDays = (n: number) =>
     todayISO(new Date(today.getFullYear(), today.getMonth(), today.getDate() + n))
-  const titles = getDict(lang).demo.tasks
+  const { tasks: titles, descriptions } = getDict(lang).demo
 
   const specs: Array<{
     name: string
+    description: string
     deadline: string | null
     tasks: Array<[Status, string, Defcon, string | null]>
   }> = [
     {
       name: 'Migration Cloud',
+      description: descriptions.cloud,
       deadline: inDays(21),
       tasks: [
         ['doing', titles.terraform, 2, inDays(2)],
@@ -268,6 +271,7 @@ export function createDemoData(lang: Lang): BoardData {
     },
     {
       name: 'Reporting Q4',
+      description: descriptions.reporting,
       deadline: inDays(5),
       tasks: [
         ['doing', titles.metrics, 2, inDays(1)],
@@ -277,6 +281,7 @@ export function createDemoData(lang: Lang): BoardData {
     },
     {
       name: 'Onboarding Tool',
+      description: descriptions.onboarding,
       deadline: inDays(60),
       tasks: [
         ['backlog', titles.requirements, 5, null],
@@ -290,6 +295,7 @@ export function createDemoData(lang: Lang): BoardData {
 
   specs.forEach((spec, index) => {
     const project = createProject(spec.name, index, index)
+    project.description = spec.description
     project.deadline = spec.deadline
     projects.push(project)
 

@@ -9,6 +9,8 @@ export type Defcon = 1 | 2 | 3 | 4 | 5
 export interface Project {
   id: string
   name: string
+  /** What this stream is about. Free text, empty when nobody wrote one. */
+  description: string
   color: string
   /** Local date, ISO `yyyy-mm-dd`. */
   deadline: string | null

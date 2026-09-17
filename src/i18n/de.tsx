@@ -181,6 +181,9 @@ export const de = {
     titleEdit: 'Projekt bearbeiten',
     nameLabel: 'Projektname',
     namePlaceholder: 'z. B. Migration Cloud',
+    descriptionLabel: 'Beschreibung',
+    descriptionPlaceholder: 'Worum geht es in diesem Projekt?',
+    descriptionHint: 'Wird vollständig in der Projektübersicht angezeigt.',
     deadlineLabel: 'Deadline',
     plusWeek: '+1 Woche',
     plusMonth: '+1 Monat',
@@ -294,6 +297,14 @@ export const de = {
       sources: 'Datenquellen inventarisiert',
       requirements: 'Anforderungen sammeln',
       prototype: 'Prototyp skizzieren',
+    },
+    descriptions: {
+      cloud:
+        'Lift & Shift der drei Kernanwendungen in die neue Landing Zone, inklusive Netzwerk-Freigaben und Kostenmodell. Abnahme durch das Betriebsteam.',
+      reporting:
+        'Quartalsbericht für die Geschäftsleitung: Kennzahlen abstimmen, Datenquellen dokumentieren, Dashboard bis zur Sitzung fertigstellen.',
+      onboarding:
+        'Vorprojekt für ein Self-Service-Onboarding neuer Mitarbeitender. Noch keine Zusage, erst Anforderungen und ein Prototyp.',
     },
   },
 }
