@@ -10,11 +10,11 @@ one JSON file on your disk.
 [![React 19](https://img.shields.io/badge/React-19-0a84ff?logo=react&logoColor=white)](https://react.dev)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Vite 7](https://img.shields.io/badge/Vite-7-bf5af2?logo=vite&logoColor=white)](https://vite.dev)
-[![Tests](https://img.shields.io/badge/tests-61%20passing-32d74b)](#development)
+[![Tests](https://img.shields.io/badge/tests-passing-32d74b)](#development)
 ![Server dependencies](https://img.shields.io/badge/server%20deps-0-ff9f0a)
 ![No cloud](https://img.shields.io/badge/cloud-none-ff453a)
 
-<img src="docs/images/hero.png" alt="The DEFCON 1 board: a command deck of project tiles above seven project swimlanes across Backlog, Todo, In Progress, Blocked and Done columns" width="100%">
+<img src="docs/images/hero.png" alt="The DEFCON 1 board: a command deck of seven project tiles with deadline countdowns above project swimlanes running across the Backlog, Todo, In Progress, Blocked and Done columns, cards colour-coded by DEFCON level" width="100%">
 
 </div>
 
@@ -58,7 +58,7 @@ Press <kbd>d</kbd> for compact mode, and narrow the Done column to just its
 count — the working columns get the width instead.
 
 <div align="center">
-<img src="docs/images/compact.png" alt="The same board in compact density with the command deck collapsed and the Done column narrowed to a count, fitting five project lanes on screen" width="100%">
+<img src="docs/images/compact.png" alt="The same board in compact density with the command deck collapsed and the Done column narrowed to a bare count, fitting the same five project lanes into noticeably less vertical space" width="100%">
 </div>
 
 ### Priorities as DEFCON levels
@@ -67,14 +67,22 @@ Because "high / medium / low" never survives contact with ten projects.
 
 | Level | Colour | Code word | Meaning |
 | :---: | --- | --- | --- |
-| **1** | white | `COCKED PISTOL` | drop everything |
-| **2** | red | `FAST PACE` | critical |
-| **3** | yellow | `ROUND HOUSE` | important |
-| **4** | green | `DOUBLE TAKE` | normal |
-| **5** | blue | `FADE OUT` | someday |
+| **1** | 🟥 red | `COCKED PISTOL` | now |
+| **2** | 🟧 orange | `FAST PACE` | critical |
+| **3** | 🟨 yellow | `ROUND HOUSE` | important |
+| **4** | 🟩 green | `DOUBLE TAKE` | normal |
+| **5** | 🟦 blue | `FADE OUT` | someday |
+
+These are the official signal colours of the scale, used verbatim rather than
+toned down to fit the UI — that contrast *is* the feature.
 
 Every card carries a coloured stripe on its left edge. Levels 1 and 2 count as
 **hot** and light up both the lane header and the command deck.
+
+Urgency needs no housekeeping: with task sorting on `DEFCON`, a task that gets
+promoted rises to the top of its cell by itself. Switch to `MANUAL` if you would
+rather order cards by hand. A fresh DEFCON 1 may also make a noise — one click on
+the `ALARM` chip silences it for good on that device.
 
 ### Keyboard-first
 
@@ -165,7 +173,7 @@ DEFCON1_HOST=0.0.0.0 npm start
 | `npm start` | build + serve (the normal way) |
 | `npm run serve` | serve only, no rebuild |
 | `npm run dev` | Vite dev server (`:5173`) + API server, with hot reload |
-| `npm test` | Vitest — 61 tests |
+| `npm test` | Vitest — logic and UI suite |
 | `npm run typecheck` | TypeScript strict check |
 
 ```
@@ -183,6 +191,7 @@ data/board.json     your data
 for drag & drop, Vitest. The server runs on the Node standard library alone —
 zero runtime dependencies.
 
-> [!NOTE]
-> The UI labels are currently German (the screenshots above are the real app);
-> the code, data model, and quick-add syntax are English.
+**Languages:** the interface ships in English and German. On first load it
+follows your browser; the `LANGUAGE` switch in the toolbar overrides that per
+device. The five column names and the DEFCON code words stay untranslated on
+purpose — they are the shared vocabulary of the board.
