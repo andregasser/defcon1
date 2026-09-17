@@ -9,7 +9,7 @@ export function DefconBadge({ level }: { level: Defcon }) {
   return (
     <span
       className="dc"
-      style={vars({ '--dc-color': meta.color })}
+      style={vars({ '--dc-color': meta.color, '--dc-ink': meta.ink })}
       title={t.defcon.badgeTitle(level, meta.code, t.defcon.label[level])}
     >
       {level}

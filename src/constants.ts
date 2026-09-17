@@ -22,18 +22,28 @@ export const STATUS_IDS: Status[] = STATUSES.map((s) => s.id)
 
 export interface DefconMeta {
   level: Defcon
+  /** The official signal colour of this level. Used as fill, never as small text. */
   color: string
+  /** Text colour that stays legible **on** `color` — dark on the bright levels. */
+  ink: string
   /** Official DEFCON code word. Stays untranslated — it is a proper name. */
   code: string
 }
 
-/** Authentic DEFCON colour coding: 1 white, 2 red, 3 yellow, 4 green, 5 blue. */
+/**
+ * The official DEFCON colour scale: 1 red, 2 orange, 3 yellow, 4 green, 5 blue.
+ * These are signal colours, not tuned-down UI tones — they are the whole point
+ * of the scale, so they are used verbatim. `ink` keeps the badge readable, which
+ * is the one place where text sits on top of the colour.
+ */
 export const DEFCONS: DefconMeta[] = [
-  { level: 1, color: '#ffffff', code: 'COCKED PISTOL' },
-  { level: 2, color: '#ff453a', code: 'FAST PACE' },
-  { level: 3, color: '#ffd60a', code: 'ROUND HOUSE' },
-  { level: 4, color: '#32d74b', code: 'DOUBLE TAKE' },
-  { level: 5, color: '#0a84ff', code: 'FADE OUT' },
+  // The ink is dark on all the bright levels — white on this red only reaches
+  // 3.8:1, and the badge digit is far too small for that.
+  { level: 1, color: '#ff1f1f', ink: '#08090c', code: 'COCKED PISTOL' },
+  { level: 2, color: '#ff8c00', ink: '#08090c', code: 'FAST PACE' },
+  { level: 3, color: '#ffd400', ink: '#08090c', code: 'ROUND HOUSE' },
+  { level: 4, color: '#22b14c', ink: '#08090c', code: 'DOUBLE TAKE' },
+  { level: 5, color: '#0057d8', ink: '#ffffff', code: 'FADE OUT' },
 ]
 
 export const DEFCON_BY_LEVEL: Record<Defcon, DefconMeta> = Object.fromEntries(

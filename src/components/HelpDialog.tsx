@@ -111,7 +111,12 @@ export function HelpDialog({ mode, onClose, onLoadDemo }: Props) {
           <div className="dl">
             {DEFCONS.map((meta) => (
               <span key={meta.level} style={{ display: 'contents' }}>
-                <code style={{ color: meta.color }}>DEFCON {meta.level}</code>
+                {/* The signal colour as a swatch, not as text: the deep blue of
+                    DEFCON 5 is unreadable on a dark panel. */}
+                <span className="dl-key">
+                  <span className="chip-swatch" style={{ background: meta.color }} />
+                  <code>DEFCON {meta.level}</code>
+                </span>
                 <span>
                   {t.defcon.label[meta.level]} — {meta.code}
                 </span>
