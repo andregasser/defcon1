@@ -45,12 +45,42 @@ the same time. They all see the same board.
 
 The **command deck** puts one tile per project above the board: deadline
 countdown, progress bar, and counters for open / doing / blocked / hot /
-overdue. Click a tile to focus that project, click several to focus several,
-double-click to edit it.
+overdue / stalled. Click a tile to focus that project, click several to focus
+several, double-click to edit it.
 
 Below it, the board keeps ten lanes readable: sticky column headers, a sticky
 lane rail, capped cell height so one overloaded project cannot push the others
 off screen, and collapsible lanes that leave a summary line behind.
+
+### Idle time, because DEFCON only tells you half the story
+
+Every card remembers when it entered its current column. Sit still too long — **3
+days** in In Progress, **2** in Blocked — and it picks up a violet `◴ 6 d`, while
+the lane, the tile, and the header start counting the ones that stopped moving.
+
+DEFCON says what is important; idle time says what got forgotten. Reordering
+inside a column or moving a card to another project does **not** restart the
+clock — only a real column change does.
+
+### A checklist inside a task
+
+Add as many steps as you like in the task dialog: tick them off, rename them,
+delete them. The card shows only the tally — `☐ 1/3`, turning green at `☑ 3/3`.
+
+A step is deliberately *not* a task: no status, no DEFCON, no place on the board.
+Otherwise the lanes would be unreadable within a week.
+
+### Today (<kbd>t</kbd>)
+
+One flat list across every project, grouped by pressure instead of by project:
+**Overdue**, **Due today**, **In progress**, **Hot** (DEFCON 1–2 and not yet
+being worked on).
+
+Each task appears in exactly one group — the sharpest one wins — so the numbers
+actually mean something. The list ignores search and the DEFCON filter, since it
+has its own opinion about what is urgent, but it does respect the project focus.
+Selection and the usual keys (<kbd>1</kbd>–<kbd>5</kbd>, <kbd>e</kbd>,
+<kbd>x</kbd>, <kbd>Backspace</kbd>) work exactly as on the board.
 
 ### A density switch that actually earns its keep
 
@@ -90,6 +120,7 @@ the `ALARM` chip silences it for good on that device.
 | --- | --- |
 | <kbd>1</kbd>–<kbd>5</kbd> | move the selected task to Backlog / Todo / In Progress / Blocked / Done |
 | <kbd>Shift</kbd> + <kbd>1</kbd>–<kbd>5</kbd> | set its DEFCON level |
+| <kbd>t</kbd> | toggle the Today list across all projects |
 | <kbd>n</kbd> | new task in the first visible project |
 | <kbd>p</kbd> | new project |
 | <kbd>e</kbd> | open the selected task |
@@ -99,7 +130,7 @@ the `ALARM` chip silences it for good on that device.
 | <kbd>c</kbd> | collapse / expand all lanes |
 | <kbd>d</kbd> | toggle density |
 | <kbd>?</kbd> | help |
-| <kbd>Escape</kbd> | backs out of quick-add → selection → search → filter → focus, in that order |
+| <kbd>Escape</kbd> | backs out of quick-add → selection → search → filter → focus → Today, in that order |
 
 With the mouse: drag cards between columns, between projects, or to reorder
 within a column. Click selects, double-click opens, and `+ Task` appears when
@@ -180,9 +211,9 @@ DEFCON1_HOST=0.0.0.0 npm start
 server/server.mjs   dependency-free HTTP server: /api/state + dist/
 scripts/dev.mjs     runs Vite and the API server together
 src/App.tsx         orchestration, drag & drop, shortcuts
-src/components/     Board, Cell, TaskCard, LaneHeader, CommandDeck, dialogs
+src/components/     Board, Cell, TaskCard, LaneHeader, CommandDeck, TodayView, dialogs
 src/hooks/          useBoard (data + sync), usePrefs (view state)
-src/lib/            board (pure logic), date, quickAdd, storage
+src/lib/            board (pure logic), date, quickAdd, storage, today
 src/__tests__/      logic and UI tests
 data/board.json     your data
 ```
