@@ -24,7 +24,7 @@ npm install
 | Command | Purpose |
 | --- | --- |
 | `npm run dev` | Vite (`:5173`) + API server together, hot reload — use this while coding |
-| `npm test` | Vitest once (71 tests) |
+| `npm test` | Vitest once (76 tests) |
 | `npm run test:watch` | Vitest in watch mode |
 | `npm run typecheck` | `tsc -b --noEmit`, strict |
 | `npm run build` | `tsc -b && vite build` into `dist/` |
@@ -71,9 +71,9 @@ Rules of thumb:
 
 ## 4. Data model and persistence
 
-* `Project { id, name, color, deadline, order }`, `Task { id, projectId, title,
-  note, status, defcon, due, order, createdAt, doneAt }`. Dates are local ISO
-  days, `yyyy-mm-dd`.
+* `Project { id, name, description, color, deadline, order }`, `Task { id,
+  projectId, title, note, status, defcon, due, order, createdAt, doneAt }`.
+  Dates are local ISO days, `yyyy-mm-dd`.
 * `order` is dense **per cell** (`projectId` × `status`) for tasks and per board
   for projects. Any move must renumber both source and target so no holes appear.
 * A cell is addressed by `cellId(projectId, status)` → `cell:<projectId>:<status>`;
@@ -135,6 +135,12 @@ The UI is designed for ~10 simultaneous projects. Keep it that way when you touc
 the board: sticky column heads and lane rail, capped cell height with internal
 scrolling, collapsible lanes, compact density, narrow Done, focus via the command
 deck, DEFCON filter and search.
+
+**Project text is never truncated.** Lane name, tile name and the project
+description wrap (`overflow-wrap: anywhere`) instead of ending in an ellipsis or
+a line clamp — a half-read project name or description is worse than a taller
+row. `logic.test.ts` asserts this directly against `index.css`, so if you restyle
+those rules, keep the promise rather than the test.
 
 The board is **one flat CSS grid**: a lane header and its five cells are
 siblings, not nested in a per-lane wrapper. Tests walk `nextElementSibling` to

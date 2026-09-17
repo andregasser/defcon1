@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { describe, it } from 'vitest'
 
 import {
@@ -46,7 +47,7 @@ function task(id: string, projectId: string, status: Status, order: number, defc
 }
 
 function project(id: string, order: number, deadline: string | null = null): Project {
-  return { id, name: id, color: '#0a84ff', deadline, order }
+  return { id, name: id, description: '', color: '#0a84ff', deadline, order }
 }
 
 /** Ids of a cell, in stored order. */
@@ -472,6 +473,31 @@ describe('dictionaries', () => {
   })
 })
 
+/* --------------------------------------------------------------------- css */
+
+/** The declaration block of one top-level rule, looked up by exact selector. */
+function cssBlock(css: string, selector: string): string {
+  const start = css.indexOf(`\n${selector} {`)
+  assert.notEqual(start, -1, `the rule ${selector} is gone`)
+  return css.slice(start, css.indexOf('}', start))
+}
+
+describe('project text is never truncated', () => {
+  // Whether a project name or description fits is decided in CSS alone, so this
+  // is the only place where the promise "you always see all of it" can be kept.
+  const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8')
+
+  for (const selector of ['.lane-name', '.tile-name', '.tile-desc']) {
+    it(`${selector} wraps instead of cutting off`, () => {
+      const block = cssBlock(css, selector)
+      assert.ok(!block.includes('text-overflow: ellipsis'), `${selector} truncates`)
+      assert.ok(!block.includes('white-space: nowrap'), `${selector} refuses to wrap`)
+      assert.ok(!block.includes('line-clamp'), `${selector} clamps the line count`)
+      assert.ok(block.includes('overflow-wrap: anywhere'), `${selector} cannot break a long word`)
+    })
+  }
+})
+
 /* ------------------------------------------------------------- normalisation */
 
 describe('normalizeData', () => {
@@ -483,6 +509,8 @@ describe('normalizeData', () => {
   it('fills in missing fields', () => {
     const result = normalizeData({ projects: [{ id: 'p1' }], tasks: [{ id: 't1', projectId: 'p1' }] })
     assert.equal(result.projects[0].name, 'Untitled project')
+    // A board written before descriptions existed must still load.
+    assert.equal(result.projects[0].description, '')
     assert.equal(result.projects[0].deadline, null)
     assert.equal(result.tasks[0].status, 'backlog')
     assert.equal(result.tasks[0].defcon, 4)
@@ -557,6 +585,17 @@ describe('createDemoData', () => {
         )
       }
     }
+  })
+
+  it('describes every project in the interface language', () => {
+    for (const lang of LANGS) {
+      for (const project of createDemoData(lang).projects) {
+        assert.ok(project.description.length > 20, `${project.name} (${lang})`)
+      }
+    }
+    const [first] = createDemoData('de').projects
+    const [firstEn] = createDemoData('en').projects
+    assert.notEqual(first.description, firstEn.description)
   })
 
   it('survives a round-trip through normalizeData unchanged', () => {

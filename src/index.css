@@ -542,9 +542,23 @@ select {
   font-size: 13px;
   font-weight: 600;
   line-height: 1.25;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* A project title is never cut off: half a name is worse than a taller tile.
+     Long names wrap, mid-word if there is nowhere else to break. */
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.tile-desc {
+  margin: 0;
+  padding-left: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--fg-1);
+  /* Shown in full — the tile and its row grow, the text is never clipped.
+     Line breaks the user typed are kept. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .tile-pct {
@@ -780,9 +794,10 @@ select {
   font-size: 13px;
   font-weight: 600;
   line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Never cut off, same as .tile-name — the rail grows in height instead.
+     Buttons do not wrap by default, hence the explicit white-space. */
+  white-space: normal;
+  overflow-wrap: anywhere;
   background: none;
   border: 0;
   padding: 0;
