@@ -25,7 +25,7 @@ the same time.
 | `npm start` | Build + server (the normal way) |
 | `npm run serve` | Server only, without rebuilding |
 | `npm run dev` | Vite dev server (`:5173`) + API server, with hot reload |
-| `npm test` | Vitest, 84 tests |
+| `npm test` | Vitest, 87 tests |
 | `npm run typecheck` | Check TypeScript strict |
 
 Environment variables: `DEFCON1_PORT` (default `7777`), `DEFCON1_HOST` (default
@@ -79,13 +79,15 @@ localStorage on purpose: they make sense per device, not globally.
 
 ## DEFCON instead of priorities
 
+The official US scale, colours included:
+
 | Level | Colour | Code word | Meaning |
 | --- | --- | --- | --- |
-| 1 | white | COCKED PISTOL | right now |
-| 2 | red | FAST PACE | critical |
-| 3 | yellow | ROUND HOUSE | important |
-| 4 | green | DOUBLE TAKE | normal |
-| 5 | blue | FADE OUT | someday |
+| 1 | red `#ff1f1f` | COCKED PISTOL | right now |
+| 2 | orange `#ff8c00` | FAST PACE | critical |
+| 3 | yellow `#ffd400` | ROUND HOUSE | important |
+| 4 | green `#22b14c` | DOUBLE TAKE | normal |
+| 5 | blue `#0057d8` | FADE OUT | someday |
 
 Every card carries a coloured stripe on the left. DEFCON 1 and 2 count as "hot"
 and are tallied in the lane and in the command deck.
@@ -98,9 +100,11 @@ column order is exactly how you drop the cards; the hand order is never
 overwritten, so switching back and forth is lossless.
 
 **And it is audible.** When a task reaches DEFCON 1 — created that way or
-escalated later — a klaxon sounds: three rising horns, synthesised in the
-browser, no audio file involved. The `Alarm` chip in the header switches it off
-per device.
+escalated later — an alarm sounds. Two recordings ship in `public/sounds/`, and
+the alarm never plays the same one twice in a row, so it stays a signal instead
+of becoming background noise. The `Alarm` chip in the header switches it off per
+device; swapping the sounds is a file drop plus one line in `src/lib/alarm.ts`,
+described in [`public/sounds/README.md`](public/sounds/README.md).
 
 ## Ten projects in parallel
 
@@ -127,7 +131,7 @@ That is what the UI is built for:
 * **Narrow Done**: shrinks the Done column to its count and gives the width to
   the working columns.
 * **Hide empty lanes**: hides projects without matching tasks.
-* **Alarm**: klaxon on a fresh DEFCON 1, switchable per device.
+* **Alarm**: an alarm sound on a fresh DEFCON 1, switchable per device.
 * **DEFCON filter and search**: shows only what is burning, across all projects.
 
 ## Usage

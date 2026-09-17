@@ -16,11 +16,12 @@ import { daysUntil, formatCountdown, formatDate } from '../lib/date'
  * Drag & drop itself needs a real pointer and is verified in the browser.
  */
 
-// jsdom has no Web Audio, so the klaxon is stubbed: what matters here is when
-// the app decides to sound it. The tone itself is covered in logic.test.ts.
+// jsdom cannot decode audio, so playback is stubbed: what matters here is when
+// the app decides to sound the alarm. The file lookup is covered in logic.test.ts.
 vi.mock('../lib/alarm', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/alarm')>()),
   playAlarm: vi.fn(),
+  preloadAlarm: vi.fn(),
 }))
 
 const alarm = vi.mocked(playAlarm)
@@ -202,7 +203,7 @@ describe('App', () => {
     })
   })
 
-  it('sounds the klaxon when a task reaches DEFCON 1 — and only then', async () => {
+  it('sounds the alarm when a task reaches DEFCON 1 — and only then', async () => {
     const user = await renderWithDemo()
 
     fireEvent.keyDown(window, { key: 'n' })
@@ -227,7 +228,7 @@ describe('App', () => {
 
     // And the chip mutes it for good.
     const topbar = document.querySelector('.topbar') as HTMLElement
-    await user.click(within(topbar).getByTitle(/Klaxon/))
+    await user.click(within(topbar).getByTitle(/Alarmton/))
     fireEvent.keyDown(window, { key: 'n' })
     await user.type(await screen.findByLabelText('Neuer Task'), 'Alles brennt !1{Enter}')
     await waitFor(() => cardByTitle('Alles brennt'))

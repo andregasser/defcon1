@@ -24,7 +24,7 @@ npm install
 | Command | Purpose |
 | --- | --- |
 | `npm run dev` | Vite (`:5173`) + API server together, hot reload — use this while coding |
-| `npm test` | Vitest once (84 tests) |
+| `npm test` | Vitest once (87 tests) |
 | `npm run test:watch` | Vitest in watch mode |
 | `npm run typecheck` | `tsc -b --noEmit`, strict |
 | `npm run build` | `tsc -b && vite build` into `dist/` |
@@ -50,7 +50,8 @@ src/components/       Board, Cell, TaskCard, LaneHeader, CommandDeck, TopBar, di
 src/hooks/useBoard.ts data + server sync + fallback + notices
 src/hooks/usePrefs.ts per-device view settings
 src/i18n/             de.tsx, en.tsx dictionaries, index.tsx context, lang.ts detection
-src/lib/alarm.ts      the DEFCON 1 klaxon, synthesised via Web Audio
+src/lib/alarm.ts      the DEFCON 1 alarm: MP3s from public/sounds/, rotated
+public/sounds/        the alarm recordings + their own README
 src/lib/board.ts      pure board logic: cell ids, moves, stats, sorting, demo data
 src/lib/date.ts       ISO parsing, language-aware formatting, countdowns
 src/lib/quickAdd.ts   the `!2 @tomorrow` mini syntax
@@ -130,7 +131,7 @@ nice-to-have.
   `navigator.languages` on first load and falls back to English. It takes an
   optional `tags` argument purely so tests can be deterministic.
 
-## 6. Priority: sorting and the klaxon
+## 6. Priority: sorting and the alarm
 
 * Cards inside a cell are ordered by `prefs.taskSort` (`'defcon'` by default,
   `'manual'` for pure hand order). `groupByCell(tasks, sort)` does it, and
@@ -138,15 +139,28 @@ nice-to-have.
 * **`order` is never renumbered for sorting.** It stays the hand order
   underneath, so switching back to `manual` restores exactly the board the user
   arranged. Never "fix up" `order` to match a DEFCON sort.
-* A task reaching DEFCON 1 sounds the klaxon (`playAlarm()` from
+* A task reaching DEFCON 1 sounds the alarm (`playAlarm()` from
   `src/lib/alarm.ts`) — on creation with `!1` and on escalation, never twice for
   a task that is already at 1, and never when `prefs.sound` is off.
 * Call it from the event handler, **not** from inside a `board.update()`
   callback: state updaters may run twice and would double the sound.
-* `alarm.ts` degrades to silence with no `AudioContext` (jsdom, old browsers) and
-  keeps one shared context for the whole session. The pulse pattern is pure
-  (`alarmPulses()`) so it can be tested; `app.test.tsx` mocks `playAlarm` and
-  asserts only *when* it fires.
+* The alarm is a **real recording**, not synthesis — synthesised horns sounded
+  like a toy and were thrown out. `ALARM_TRACKS` lists the MP3s in
+  `public/sounds/`; `nextTrack()` picks one at random but never the one that just
+  played, which is pure and therefore tested directly. Adding a sound is a file
+  plus a name in that list.
+* Playback degrades to silence everywhere: no `Audio` constructor (node tests), a
+  missing file, or a browser blocking autoplay — nothing throws. `app.test.tsx`
+  mocks `playAlarm`/`preloadAlarm` and asserts only *when* it fires.
+* `App.tsx` calls `preloadAlarm()` in an effect while `prefs.sound` is on, so the
+  files are in the cache before the first emergency.
+* `DEFCONS` in `src/constants.ts` carries the **official** scale — 1 red, 2
+  orange, 3 yellow, 4 green, 5 blue. Those are signal colours, used verbatim as
+  fill, stripe and swatch; do not tone them down. Each level also has an `ink`,
+  the text colour that stays legible **on** its `color` (the badge is the one
+  place text sits on the colour, and a test enforces 4.5:1). Where a level has to
+  appear inside running text — the help legend — use a swatch plus neutral text,
+  never the colour as font colour: `#0057d8` is unreadable on the dark panel.
 
 ## 7. Ten lanes in parallel
 

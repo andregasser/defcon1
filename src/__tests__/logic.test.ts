@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { describe, it } from 'vitest'
 
 import {
@@ -14,7 +14,8 @@ import {
   reorderProject,
   sortProjects,
 } from '../lib/board'
-import { ALARM_SECONDS, alarmPulses, playAlarm } from '../lib/alarm'
+import { ALARM_TRACKS, alarmUrl, nextTrack, playAlarm, preloadAlarm } from '../lib/alarm'
+import { DEFCONS } from '../constants'
 import { de } from '../i18n/de'
 import { en } from '../i18n/en'
 import { detectLang, isLang, LANGS } from '../i18n/lang'
@@ -434,32 +435,98 @@ describe('date helpers', () => {
 
 /* ------------------------------------------------------------------- alarm */
 
-describe('the DEFCON 1 klaxon', () => {
-  it('blasts three rising horns without overlapping itself', () => {
-    const pulses = alarmPulses()
-    assert.equal(pulses.length, 3)
-    assert.equal(pulses[0].start, 0)
-    for (const pulse of pulses) {
-      assert.ok(pulse.to > pulse.from, 'a horn has to rise in pitch')
-      assert.ok(pulse.duration > 0)
+describe('the DEFCON 1 alarm', () => {
+  it('ships more than one MP3 under public/sounds', () => {
+    // MP3 throughout: it is the one format every browser decodes.
+    assert.ok(ALARM_TRACKS.length >= 2, 'the rotation needs at least two files')
+    for (const track of ALARM_TRACKS) {
+      assert.match(track, /^sounds\/defcon1-[a-z0-9-]+\.mp3$/)
+      assert.ok(
+        existsSync(new URL(`../../public/${track}`, import.meta.url)),
+        `${track} is missing from public/`,
+      )
     }
-    for (let i = 1; i < pulses.length; i += 1) {
-      const previousEnd = pulses[i - 1].start + pulses[i - 1].duration
-      assert.ok(pulses[i].start > previousEnd, 'the horns have to be audibly separate')
-    }
-    assert.equal(ALARM_SECONDS, pulses[2].start + pulses[2].duration)
+    assert.equal(new Set(ALARM_TRACKS).size, ALARM_TRACKS.length)
   })
 
-  it('stays short enough to interrupt nobody twice', () => {
-    // Long enough to be unmistakable, short enough that nobody reaches for the
-    // mute switch — anything past two seconds is a nuisance, not a signal.
-    assert.ok(ALARM_SECONDS > 0.5 && ALARM_SECONDS < 2)
+  it('builds a URL that survives a non-root base', () => {
+    assert.equal(alarmUrl('sounds/a.mp3', '/'), '/sounds/a.mp3')
+    assert.equal(alarmUrl('sounds/a.mp3', '/defcon1/'), '/defcon1/sounds/a.mp3')
+    // A base without its trailing slash must not glue the path onto the folder.
+    assert.equal(alarmUrl('sounds/a.mp3', '/defcon1'), '/defcon1/sounds/a.mp3')
   })
 
-  it('stays quiet where there is no Web Audio at all', () => {
-    // jsdom has no AudioContext: calling it must not throw, it must do nothing.
-    assert.equal(typeof (globalThis as { AudioContext?: unknown }).AudioContext, 'undefined')
+  it('never plays the same track twice in a row', () => {
+    // The first alarm may pick anything …
+    assert.equal(nextTrack(-1, 3, () => 0), 0)
+    assert.equal(nextTrack(-1, 3, () => 0.99), 2)
+
+    // … afterwards the previous track is skipped, so the draw shifts past it.
+    assert.equal(nextTrack(0, 3, () => 0), 1)
+    assert.equal(nextTrack(0, 3, () => 0.99), 2)
+    assert.equal(nextTrack(1, 3, () => 0), 0)
+    assert.equal(nextTrack(1, 3, () => 0.99), 2)
+    assert.equal(nextTrack(2, 3, () => 0.99), 1)
+
+    // Two files therefore simply alternate, whatever the dice say.
+    assert.equal(nextTrack(0, 2, () => 0), 1)
+    assert.equal(nextTrack(0, 2, () => 0.99), 1)
+    assert.equal(nextTrack(1, 2, () => 0.99), 0)
+
+    // A single file always wins, and a real dice roll stays inside the list.
+    assert.equal(nextTrack(0, 1), 0)
+    for (let round = 0; round < 50; round += 1) {
+      const at = nextTrack(round % ALARM_TRACKS.length)
+      assert.ok(at >= 0 && at < ALARM_TRACKS.length)
+      assert.notEqual(at, round % ALARM_TRACKS.length)
+    }
+  })
+
+  it('stays quiet where there is no audio element at all', () => {
+    // Node has no `Audio`: calling this must not throw, it must do nothing.
+    assert.equal(typeof (globalThis as { Audio?: unknown }).Audio, 'undefined')
+    preloadAlarm()
     playAlarm()
+  })
+})
+
+/* ------------------------------------------------------------ defcon scale */
+
+/** WCAG relative luminance of a `#rrggbb` colour. */
+function luminance(hex: string): number {
+  const channels = [1, 3, 5].map((at) => {
+    const value = parseInt(hex.slice(at, at + 2), 16) / 255
+    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+}
+
+function contrast(a: string, b: string): number {
+  const [dark, light] = [luminance(a), luminance(b)].sort((x, y) => x - y)
+  return (light + 0.05) / (dark + 0.05)
+}
+
+describe('the official DEFCON colours', () => {
+  it('runs red, orange, yellow, green, blue from 1 to 5', () => {
+    assert.deepEqual(
+      DEFCONS.map((meta) => [meta.level, meta.color]),
+      [
+        [1, '#ff1f1f'],
+        [2, '#ff8c00'],
+        [3, '#ffd400'],
+        [4, '#22b14c'],
+        [5, '#0057d8'],
+      ],
+    )
+  })
+
+  it('keeps the level readable on its own badge', () => {
+    // The badge paints the number in `ink` on `color`; 4.5:1 is the WCAG floor
+    // for small text, and this text is very small.
+    for (const meta of DEFCONS) {
+      const ratio = contrast(meta.color, meta.ink)
+      assert.ok(ratio >= 4.5, `DEFCON ${meta.level}: only ${ratio.toFixed(2)}:1`)
+    }
   })
 })
 

@@ -40,7 +40,7 @@ import {
   sortProjects,
   type ProjectStats,
 } from './lib/board'
-import { playAlarm } from './lib/alarm'
+import { playAlarm, preloadAlarm } from './lib/alarm'
 import { nowISO } from './lib/date'
 import { parseQuickAdd } from './lib/quickAdd'
 import { downloadBackup, EMPTY_BACKUP, parseBackup } from './lib/storage'
@@ -200,8 +200,13 @@ export default function App() {
 
   /* --------------------------------------------------------------- actions */
 
+  useEffect(() => {
+    // Fetch the alarm file while nothing is on fire yet.
+    if (prefs.sound) preloadAlarm()
+  }, [prefs.sound])
+
   /**
-   * The klaxon for a task that just went to DEFCON 1. Called from the event
+   * The alarm for a task that just went to DEFCON 1. Called from the event
    * handler rather than from inside a state updater — those may run twice.
    */
   const alarmIfCritical = useCallback(

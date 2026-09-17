@@ -81,7 +81,7 @@ export const de = {
     hideEmpty: 'Leere Lanes aus',
     hideEmptyTitle: 'Swimlanes ohne passende Tasks ausblenden',
     alarm: 'Alarm',
-    alarmTitle: 'Klaxon abspielen, sobald ein Task auf DEFCON 1 steht',
+    alarmTitle: 'Alarmton abspielen, sobald ein Task auf DEFCON 1 steht',
     densityLabel: 'Dichte',
     comfort: 'Komfort',
     compact: 'Kompakt',
@@ -254,7 +254,7 @@ export const de = {
       'Innerhalb jeder Spalte stehen die dringendsten Tasks zuoberst — ein DEFCON 1 rutscht ' +
       'nach einer Prioritätsänderung von selbst nach oben. Der Schalter «Tasks» in der Kopfzeile ' +
       'stellt auf «Manuell» um, dann gilt genau die Reihenfolge, in der du die Karten hinziehst. ' +
-      'Erreicht ein Task DEFCON 1, ertönt zusätzlich ein Klaxon — abschalten mit «Alarm».',
+      'Erreicht ein Task DEFCON 1, ertönt zusätzlich der Alarmton — abschalten mit «Alarm».',
     storageLabel: 'Speicherort',
     storageServer: () => (
       <>
