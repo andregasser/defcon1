@@ -1,7 +1,7 @@
 # ▲ Defcon 1
 
-Task-Board für mehrere parallel laufende Projekte. Läuft lokal, ohne Login, ohne
-Cloud. Ein Swimlane pro Projekt, fünf Status-Spalten, Tasks per Maus verschieben.
+Task board for several projects running in parallel. Local, no login, no cloud.
+One swimlane per project, five status columns, tasks moved with the mouse.
 
 ```
                  Backlog     Todo    In Progress   Blocked    Done
@@ -10,146 +10,163 @@ Migration     │    ▓▓▓▓      ▓           ▓▓                    �
 Onboarding    │    ▓         ▓▓                                ▓
 ```
 
-## Starten
+## Getting started
 
 ```bash
 npm install
-npm start          # baut das Frontend und startet den Server
+npm start          # builds the frontend and starts the server
 ```
 
-Dann `http://127.0.0.1:7777` im Browser öffnen — in Safari, Firefox, Chrome oder
-allen gleichzeitig.
+Then open `http://127.0.0.1:7777` — in Safari, Firefox, Chrome, or all of them at
+the same time.
 
-| Befehl | Zweck |
+| Command | Purpose |
 | --- | --- |
-| `npm start` | Build + Server (der normale Weg) |
-| `npm run serve` | Nur den Server starten, ohne neu zu bauen |
-| `npm run dev` | Vite-Dev-Server (`:5173`) + API-Server, mit Hot Reload |
-| `npm test` | Vitest, 61 Tests |
-| `npm run typecheck` | TypeScript strict prüfen |
+| `npm start` | Build + server (the normal way) |
+| `npm run serve` | Server only, without rebuilding |
+| `npm run dev` | Vite dev server (`:5173`) + API server, with hot reload |
+| `npm test` | Vitest, 71 tests |
+| `npm run typecheck` | Check TypeScript strict |
 
-Umgebungsvariablen: `DEFCON1_PORT` (Standard `7777`), `DEFCON1_HOST` (Standard
-`127.0.0.1`), `DEFCON1_DATA_DIR` (Standard `./data`).
+Environment variables: `DEFCON1_PORT` (default `7777`), `DEFCON1_HOST` (default
+`127.0.0.1`), `DEFCON1_DATA_DIR` (default `./data`).
 
-Soll das Board auch vom Tablet oder einem zweiten Rechner im gleichen LAN
-erreichbar sein: `DEFCON1_HOST=0.0.0.0 npm start`. Achtung — es gibt keine
-Authentifizierung, also nur in einem Netz, dem du traust.
+To reach the board from a tablet or a second machine on the same LAN, use
+`DEFCON1_HOST=0.0.0.0 npm start`. Careful — there is no authentication, so only
+do this on a network you trust.
 
-## Wo liegen die Daten?
+## Languages
 
-In `data/board.json`. Genau eine Datei auf der Platte, nicht im Browser — das ist
-der Grund, warum es den kleinen Server überhaupt gibt.
+The whole interface is bilingual, German and English. The `DE` / `EN` switch sits
+in the top bar; the first visit follows the browser's language preferences and
+falls back to English. The choice is stored per device, so two browsers on the
+same board may run in different languages.
 
-localStorage funktioniert zwar in jedem Browser, ist aber **pro Browser
-getrennt**: was du in Safari anlegst, sieht Firefox nie. Safari löscht es bei
-`file://`-Seiten zusätzlich nach sieben Tagen Inaktivität. Deshalb hält der
-Server die Wahrheit und alle Browser reden mit ihm.
+Only the interface changes. Column names (Backlog, Todo, In Progress, Blocked,
+Done), the DEFCON code words and your own project and task text stay as they are.
+Dates follow the language: `20.09.2026` in German, `20 Sep 2026` in English —
+never `09/20`, which reads differently on either side of the Atlantic. Quick-add
+accepts both German and English tokens no matter which language is active, so
+muscle memory keeps working after a switch.
 
-* **Konflikte**: jeder Speichervorgang trägt einen `rev`-Zähler. Wer mit einem
-  veralteten Stand schreibt, bekommt HTTP 409, das Board übernimmt den
-  Serverstand und sagt es dir in der Hinweiszeile.
-* **Zweiter Browser**: alle 4 Sekunden wird nachgefragt, fremde Änderungen
-  erscheinen also von selbst.
-* **Sicherheit gegen Datenverlust**: geschrieben wird über eine temporäre Datei
-  plus `rename`, ein Absturz kann die Datei nie halb überschreiben. Vor jedem
-  Schreiben landet eine Kopie in `data/backups/` (die letzten 20 bleiben).
-* **Ohne Server**: das Frontend fällt automatisch auf localStorage zurück und
-  zeigt oben rechts „nur dieser Browser". Startest du den Server später, wird
-  ein bestehendes localStorage-Board einmalig übernommen.
-* **Von Hand**: `Export` legt eine JSON-Datei ab, `Import` liest sie zurück. Der
-  Server ist ein Prozess mit einer Datei — du darfst `data/board.json` auch
-  einfach kopieren, versionieren oder in einen Sync-Ordner legen.
+## Where is the data?
 
-Ansichtseinstellungen (Dichte, Sortierung, eingeklappte Lanes, Fokus) liegen
-absichtlich in localStorage: die sind pro Gerät sinnvoll, nicht global.
+In `data/board.json`. Exactly one file on disk, not in the browser — which is the
+whole reason the little server exists.
 
-## DEFCON statt Prioritäten
+localStorage works in every browser but is **separate per browser**: what you
+create in Safari, Firefox will never see. On `file://` pages Safari also deletes
+it after seven days of inactivity. So the server holds the truth and every
+browser talks to it.
 
-| Level | Farbe | Codewort | Bedeutung |
+* **Conflicts**: every save carries a `rev` counter. Writing from a stale state
+  gets HTTP 409, the board adopts the server state and tells you in the notice
+  line.
+* **Second browser**: the board polls every 4 seconds, so other people's changes
+  show up on their own.
+* **Safety against data loss**: writes go through a temporary file plus `rename`,
+  so a crash can never leave the file half-written. Before every write a copy
+  lands in `data/backups/` (the last 20 are kept).
+* **Without a server**: the frontend falls back to localStorage automatically and
+  shows "this browser only" in the top right. Start the server later and an
+  existing localStorage board is migrated once.
+* **By hand**: `Export` writes a JSON file, `Import` reads it back. The server is
+  one process with one file — you are welcome to copy `data/board.json`, put it
+  under version control or drop it into a sync folder.
+
+View settings (density, sorting, collapsed lanes, focus, language) live in
+localStorage on purpose: they make sense per device, not globally.
+
+## DEFCON instead of priorities
+
+| Level | Colour | Code word | Meaning |
 | --- | --- | --- | --- |
-| 1 | weiss | COCKED PISTOL | sofort |
-| 2 | rot | FAST PACE | kritisch |
-| 3 | gelb | ROUND HOUSE | wichtig |
-| 4 | grün | DOUBLE TAKE | normal |
-| 5 | blau | FADE OUT | irgendwann |
+| 1 | white | COCKED PISTOL | right now |
+| 2 | red | FAST PACE | critical |
+| 3 | yellow | ROUND HOUSE | important |
+| 4 | green | DOUBLE TAKE | normal |
+| 5 | blue | FADE OUT | someday |
 
-Jede Karte trägt einen farbigen Streifen links. DEFCON 1 und 2 gelten als „hot"
-und werden in der Lane und im Command Deck gezählt.
+Every card carries a coloured stripe on the left. DEFCON 1 and 2 count as "hot"
+and are tallied in the lane and in the command deck.
 
-## Zehn parallele Projekte
+## Ten projects in parallel
 
-Dafür ist das UI gebaut:
+That is what the UI is built for:
 
-* **Command Deck** oben: eine Kachel pro Projekt mit Deadline-Countdown,
-  Fortschritt und den Zählern offen / doing / blocked / hot / überfällig. Ein
-  Klick fokussiert das Projekt, mehrere Klicks fokussieren mehrere. Doppelklick
-  öffnet die Projekteinstellungen.
-* **Deadline pro Projekt**: Tagesdatum plus Countdown, in der Lane und auf der
-  Kachel. Lanes sind standardmässig nach Deadline sortiert, die dringendste oben.
-* **Sticky Spaltenköpfe und Lane-Schiene**: beim Scrollen bleibt sichtbar, wo du
-  bist.
-* **Gedeckelte Zellenhöhe**: eine überfüllte Lane scrollt intern statt die
-  anderen aus dem Bild zu schieben.
-* **Lanes einklappen** — einzeln über das Chevron, alle über `c`. Eingeklappt
-  bleibt eine Zusammenfassungszeile.
-* **Dichte** `Komfort` / `Kompakt` (`d`): kompakt bringt deutlich mehr Lanes auf
-  den Schirm.
-* **Done schmal**: schrumpft die Done-Spalte auf die Zählung und gibt die Breite
-  den arbeitenden Spalten.
-* **Leere Lanes aus**: blendet Projekte ohne passende Tasks aus.
-* **DEFCON-Filter und Suche**: zeigt quer über alle Projekte nur das Brennende.
+* **Command deck** on top: one tile per project with deadline countdown,
+  progress and the counters open / doing / blocked / hot / overdue. One click
+  focuses the project, several clicks focus several. A double click opens the
+  project settings.
+* **Deadline per project**: calendar date plus countdown, in the lane and on the
+  tile. Lanes are sorted by deadline by default, the most urgent on top.
+* **Sticky column heads and lane rail**: while scrolling you can still see where
+  you are.
+* **Capped cell height**: an overflowing lane scrolls internally instead of
+  pushing the others off screen.
+* **Collapse lanes** — one at a time via the chevron, all of them with `c`. A
+  summary line stays behind.
+* **Density** `Comfort` / `Compact` (`d`): compact fits considerably more lanes
+  on screen.
+* **Narrow Done**: shrinks the Done column to its count and gives the width to
+  the working columns.
+* **Hide empty lanes**: hides projects without matching tasks.
+* **DEFCON filter and search**: shows only what is burning, across all projects.
 
-## Bedienung
+## Usage
 
-### Maus
+### Mouse
 
-* Karte ziehen — zwischen Spalten, zwischen Projekten, innerhalb einer Spalte
-  neu einsortieren.
-* Klick wählt eine Karte, Doppelklick öffnet sie.
-* `+ Task` erscheint beim Überfahren einer Zelle.
+* Drag a card — between columns, between projects, or reorder inside a column.
+* A click selects a card, a double click opens it.
+* `+ Task` appears when hovering a cell.
 
-### Tastatur
+### Keyboard
 
-| Taste | Wirkung |
+| Key | Effect |
 | --- | --- |
-| `1`–`5` | gewählten Task in Backlog / Todo / In Progress / Blocked / Done |
-| `Shift`+`1`–`5` | DEFCON des gewählten Tasks setzen |
-| `n` | neuer Task im ersten sichtbaren Projekt |
-| `p` | neues Projekt |
-| `e` | gewählten Task öffnen |
-| `x` | gewählten Task auf Done / zurück auf Todo |
-| `Backspace` / `Delete` | gewählten Task löschen (mit Rückfrage) |
-| `/` | Suchfeld |
-| `c` | alle Lanes ein-/ausklappen |
-| `d` | Dichte umschalten |
-| `?` | Hilfe |
-| `Escape` | Quick-Add → Auswahl → Suche → Filter → Fokus, in dieser Reihenfolge |
+| `1`–`5` | move the selected task to Backlog / Todo / In Progress / Blocked / Done |
+| `Shift`+`1`–`5` | set the DEFCON of the selected task |
+| `n` | new task — in the selected task's project, otherwise the first visible one |
+| `p` | new project |
+| `e` | open the selected task |
+| `x` | selected task to Done / back to Todo |
+| `Backspace` / `Delete` | delete the selected task (with a confirmation) |
+| `/` | search field |
+| `c` | collapse / expand all lanes |
+| `d` | toggle density |
+| `?` | help |
+| `Escape` | quick add → selection → search → filter → focus, in that order |
 
-### Quick-Add-Syntax
+### Quick-add syntax
 
-Im `+ Task`-Feld direkt mitschreiben:
-
-```
-Firewall-Ticket eröffnen !2 @morgen
-```
-
-* `!1` … `!5` setzt DEFCON.
-* `@heute`, `@morgen`, `@mo`…`@so`, `@+3d`, `@+2w`, `@20.09.`, `@20.09.2027`,
-  `@2026-09-20` setzen das Fälligkeitsdatum.
-* Was nicht als Token aufgeht, bleibt einfach im Titel stehen.
-
-## Aufbau
+Type it straight into the `+ Task` field:
 
 ```
-server/server.mjs   HTTP-Server ohne Dependencies: /api/state + dist/
-scripts/dev.mjs     startet Vite und den API-Server zusammen
-src/App.tsx         Orchestrierung, Drag & Drop, Shortcuts
-src/components/     Board, Cell, TaskCard, LaneHeader, CommandDeck, Dialoge
-src/hooks/          useBoard (Daten + Sync), usePrefs (Ansicht)
-src/lib/            board (reine Logik), date, quickAdd, storage
-src/__tests__/      Logik- und UI-Tests
-data/board.json     deine Daten
+Open firewall ticket !2 @tomorrow
 ```
 
-Stack: React 19, TypeScript strict, Vite 7, `@dnd-kit` für Drag & Drop, Vitest.
-Der Server kommt ohne jede Laufzeit-Dependency aus.
+* `!1` … `!5` sets the DEFCON.
+* `@today`, `@tomorrow`, `@mon`…`@sun`, `@+3d`, `@+2w`, `@20.09.`, `@20.09.2027`,
+  `@2026-09-20` set the due date. The German tokens (`@heute`, `@morgen`,
+  `@mo`…`@so`) work as well, in both languages.
+* Anything that is not a valid token simply stays in the title.
+
+## Layout
+
+```
+server/server.mjs   dependency-free HTTP server: /api/state + dist/
+scripts/dev.mjs     starts Vite and the API server together
+src/App.tsx         orchestration, drag & drop, shortcuts
+src/components/     Board, Cell, TaskCard, LaneHeader, CommandDeck, dialogs
+src/hooks/          useBoard (data + sync), usePrefs (view)
+src/i18n/           de and en dictionaries, language context, detection
+src/lib/            board (pure logic), date, quickAdd, storage
+src/__tests__/      logic and UI tests
+data/board.json     your data
+```
+
+Stack: React 19, TypeScript strict, Vite 7, `@dnd-kit` for drag & drop, Vitest.
+The server runs without a single runtime dependency.
+
+Contributing or handing this to an agent? `AGENTS.md` has the working agreements.
