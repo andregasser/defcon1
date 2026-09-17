@@ -37,6 +37,7 @@ import {
   projectStats,
   reorderProject,
   sortProjects,
+  staleDays,
   type ProjectStats,
 } from './lib/board'
 import { nowISO } from './lib/date'
@@ -140,15 +141,17 @@ export default function App() {
     let open = 0
     let doing = 0
     let blocked = 0
+    let stale = 0
     let alert: Defcon | null = null
     for (const task of data.tasks) {
       if (task.status === 'done') continue
       open += 1
       if (task.status === 'doing') doing += 1
       if (task.status === 'blocked') blocked += 1
+      if (staleDays(task) !== null) stale += 1
       if (alert === null || task.defcon < alert) alert = task.defcon
     }
-    return { open, doing, blocked, alert }
+    return { open, doing, blocked, stale, alert }
   }, [data.tasks])
 
   const allCollapsed =
@@ -552,6 +555,7 @@ export default function App() {
         openCount={globals.open}
         doingCount={globals.doing}
         blockedCount={globals.blocked}
+        staleCount={globals.stale}
         onExport={() => downloadBackup(data)}
         onImport={() => importRef.current?.click()}
         onHelp={() => setHelpOpen(true)}

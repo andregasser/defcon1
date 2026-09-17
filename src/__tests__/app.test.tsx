@@ -91,6 +91,18 @@ describe('App', () => {
     assert.deepEqual(laneNames, ['Reporting Q4', 'Migration Cloud', 'Onboarding Tool'])
   })
 
+  it('marks a card that has not moved for too long', async () => {
+    await renderWithDemo()
+
+    // The demo board parks the firewall approval in Blocked for six days.
+    const card = cardByTitle('Netzwerk-Freigabe Firewall')
+    const chip = within(card).getByTitle(/Liegt seit 6 Tagen/)
+    assert.match(chip.textContent ?? '', /6 T/)
+
+    // A task that only entered its column yesterday stays quiet.
+    assert.equal(within(cardByTitle('Terraform-Module refactoren')).queryByTitle(/Liegt seit/), null)
+  })
+
   it('creates a task from the quick-add mini syntax', async () => {
     const user = await renderWithDemo()
 

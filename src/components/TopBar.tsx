@@ -19,6 +19,8 @@ interface Props {
   openCount: number
   doingCount: number
   blockedCount: number
+  /** Open tasks that stopped moving — see `staleDays`. */
+  staleCount: number
   onExport: () => void
   onImport: () => void
   onHelp: () => void
@@ -54,6 +56,7 @@ export function TopBar({
   openCount,
   doingCount,
   blockedCount,
+  staleCount,
   onExport,
   onImport,
   onHelp,
@@ -224,8 +227,9 @@ export function TopBar({
 
         <span className="spacer" />
 
-        <span className="micro">
+        <span className="micro" title="Stehengelassen: zu lange unverändert in In Progress oder Blocked">
           {openCount} offen · {doingCount} laufen · {blockedCount} blockiert
+          {staleCount > 0 && ` · ${staleCount} stehen`}
         </span>
       </div>
     </header>

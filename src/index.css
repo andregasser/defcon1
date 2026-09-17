@@ -642,6 +642,11 @@ select {
   border-color: rgba(10, 132, 255, 0.36);
   color: #9fcbff;
 }
+.badge[data-tone='stale'] {
+  background: rgba(191, 90, 242, 0.13);
+  border-color: rgba(191, 90, 242, 0.36);
+  color: #dcaaff;
+}
 .badge[data-tone='muted'] {
   background: transparent;
 }
@@ -1027,6 +1032,18 @@ select {
 }
 .due[data-tone='soon'] {
   color: var(--fg-1);
+}
+
+/* Time standing still: the card has not moved for too long. */
+.stale {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  color: #dcaaff;
+  white-space: nowrap;
 }
 
 .note-dot {

@@ -135,6 +135,15 @@ export function CommandDeck({
                       ◷ {stats.overdue}
                     </span>
                   )}
+                  {stats.stale > 0 && (
+                    <span
+                      className="badge"
+                      data-tone="stale"
+                      title="Stehengelassen: zu lange unverändert in In Progress oder Blocked"
+                    >
+                      ◴ {stats.stale}
+                    </span>
+                  )}
                 </div>
               </div>
             )

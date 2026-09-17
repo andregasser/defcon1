@@ -70,6 +70,7 @@ export function normalizeData(raw: unknown): BoardData {
     const task = (item ?? {}) as Partial<Task>
     if (!task.id || !task.projectId || !knownProjects.has(String(task.projectId))) return
     const status = asStatus(task.status)
+    const createdAt = asString(task.createdAt, nowISO())
     tasks.push({
       id: String(task.id),
       projectId: String(task.projectId),
@@ -79,7 +80,10 @@ export function normalizeData(raw: unknown): BoardData {
       defcon: asDefcon(task.defcon),
       due: asDate(task.due),
       order: Number.isFinite(task.order) ? Number(task.order) : index,
-      createdAt: asString(task.createdAt, nowISO()),
+      createdAt,
+      // Boards written before the aging chip existed have no timestamp: fall
+      // back to creation, which is the earliest the task can have been here.
+      statusSince: asString(task.statusSince) || createdAt,
       doneAt: status === 'done' ? asString(task.doneAt, nowISO()) : null,
     })
   })

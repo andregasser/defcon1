@@ -12,8 +12,9 @@ import {
   projectStats,
   reorderProject,
   sortProjects,
+  staleDays,
 } from '../lib/board'
-import { daysUntil, formatCountdown, formatDate, parseISODate, todayISO } from '../lib/date'
+import { daysSince, daysUntil, formatCountdown, formatDate, parseISODate, todayISO } from '../lib/date'
 import { parseQuickAdd } from '../lib/quickAdd'
 import { normalizeData, parseBackup } from '../lib/storage'
 import type { Defcon, Project, Status, Task } from '../types'
@@ -31,8 +32,21 @@ function task(id: string, projectId: string, status: Status, order: number, defc
     due: null,
     order,
     createdAt: '2026-01-01T00:00:00.000Z',
+    statusSince: '2026-01-01T00:00:00.000Z',
     doneAt: null,
   }
+}
+
+/** A task that entered its current status `days` ago. */
+function aged(
+  id: string,
+  status: Status,
+  days: number,
+  now = new Date(),
+  defcon: Defcon = 4,
+): Task {
+  const since = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days, 9)
+  return { ...task(id, 'p1', status, 0, defcon), statusSince: since.toISOString() }
 }
 
 function project(id: string, order: number, deadline: string | null = null): Project {
@@ -115,6 +129,21 @@ describe('moveTask', () => {
 
     const back = moveTask(done, 'a', 'p1', 'todo', 0)
     assert.equal(back.find((t) => t.id === 'a')?.doneAt, null)
+  })
+
+  it('restarts the status clock only on a real column change', () => {
+    const old = '2026-01-01T00:00:00.000Z'
+
+    const moved = moveTask(base, 'a', 'p1', 'doing', 0).find((t) => t.id === 'a')
+    assert.notEqual(moved?.statusSince, old, 'Spaltenwechsel muss die Uhr neu starten')
+
+    // Reordering inside the cell, or handing the card to another project, does
+    // not change how long it has been waiting.
+    const reordered = moveTask(base, 'a', 'p1', 'todo', 2).find((t) => t.id === 'a')
+    assert.equal(reordered?.statusSince, old)
+
+    const handedOver = moveTask(base, 'a', 'p2', 'todo', 0).find((t) => t.id === 'a')
+    assert.equal(handedOver?.statusSince, old)
   })
 
   it('clamps out-of-range indexes instead of creating holes', () => {
@@ -203,6 +232,11 @@ describe('projectStats', () => {
     assert.equal(stats.topDefcon, 1)
   })
 
+  it('counts tasks that stopped moving', () => {
+    const stuck = [aged('a', 'blocked', 6), aged('b', 'doing', 1), aged('c', 'done', 30)]
+    assert.equal(projectStats(stuck, 'p1').stale, 1)
+  })
+
   it('ignores done tasks for urgency', () => {
     const stats = projectStats([task('x', 'p3', 'done', 0, 1)], 'p3')
     assert.equal(stats.topDefcon, null)
@@ -212,6 +246,33 @@ describe('projectStats', () => {
 
   it('reports 0% for an empty project instead of dividing by zero', () => {
     assert.equal(projectStats([], 'p9').percent, 0)
+  })
+})
+
+/* -------------------------------------------------------------------- aging */
+
+describe('staleDays', () => {
+  it('waits for the per-status threshold before complaining', () => {
+    // In Progress is allowed three days, Blocked only two.
+    assert.equal(staleDays(aged('a', 'doing', 2)), null)
+    assert.equal(staleDays(aged('a', 'doing', 3)), 3)
+    assert.equal(staleDays(aged('a', 'blocked', 1)), null)
+    assert.equal(staleDays(aged('a', 'blocked', 2)), 2)
+    assert.equal(staleDays(aged('a', 'blocked', 9)), 9)
+  })
+
+  it('ignores columns where waiting is normal', () => {
+    assert.equal(staleDays(aged('a', 'backlog', 400)), null)
+    assert.equal(staleDays(aged('a', 'todo', 400)), null)
+  })
+
+  it('never marks a done task as stuck', () => {
+    assert.equal(staleDays(aged('a', 'done', 90)), null)
+  })
+
+  it('survives a missing or malformed timestamp', () => {
+    assert.equal(staleDays({ ...aged('a', 'blocked', 5), statusSince: '' }), null)
+    assert.equal(staleDays({ ...aged('a', 'blocked', 5), statusSince: 'gestern' }), null)
   })
 })
 
@@ -354,6 +415,16 @@ describe('date helpers', () => {
     assert.equal(daysUntil('2026-09-10', from), -7)
   })
 
+  it('counts whole days since a timestamp', () => {
+    const from = new Date(2026, 8, 17, 7, 15)
+    // Late yesterday evening is "1 T" this morning: calendar days, not hours.
+    assert.equal(daysSince(new Date(2026, 8, 16, 22, 40).toISOString(), from), 1)
+    assert.equal(daysSince(new Date(2026, 8, 17, 6, 0).toISOString(), from), 0)
+    assert.equal(daysSince(new Date(2026, 8, 10, 12, 0).toISOString(), from), 7)
+    assert.equal(daysSince(null, from), null)
+    assert.equal(daysSince('irgendwann', from), null)
+  })
+
   it('describes the countdown in German', () => {
     const now = new Date()
     const inDays = (n: number) =>
@@ -401,6 +472,14 @@ describe('normalizeData', () => {
     assert.equal(result.projects[0].deadline, null)
     assert.equal(result.tasks[0].defcon, 4)
     assert.equal(result.tasks[0].due, null)
+  })
+
+  it('dates the status back to creation for boards without the field', () => {
+    const result = normalizeData({
+      projects: [{ id: 'p1' }],
+      tasks: [{ id: 't1', projectId: 'p1', createdAt: '2026-02-03T10:00:00.000Z' }],
+    })
+    assert.equal(result.tasks[0].statusSince, '2026-02-03T10:00:00.000Z')
   })
 
   it('gives every done task a doneAt timestamp', () => {

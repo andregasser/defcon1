@@ -25,6 +25,11 @@ export interface Task {
   /** Rank within the (projectId, status) cell. */
   order: number
   createdAt: string
+  /**
+   * When the task last entered its current status. DEFCON says how important
+   * something is, this says how long it has not moved.
+   */
+  statusSince: string
   doneAt: string | null
 }
 

@@ -103,7 +103,7 @@ export function LaneHeader({
               {stats.open} offen · {stats.percent}%
             </span>
           </div>
-          {(stats.hot > 0 || stats.blocked > 0 || stats.overdue > 0) && (
+          {(stats.hot > 0 || stats.blocked > 0 || stats.overdue > 0 || stats.stale > 0) && (
             <div className="lane-badges">
               {stats.hot > 0 && (
                 <span className="badge" data-tone="hot" title="Offene Tasks auf DEFCON 1–2">
@@ -118,6 +118,15 @@ export function LaneHeader({
               {stats.overdue > 0 && (
                 <span className="badge" data-tone="hot" title="Tasks über dem Fälligkeitsdatum">
                   ◷ {stats.overdue}
+                </span>
+              )}
+              {stats.stale > 0 && (
+                <span
+                  className="badge"
+                  data-tone="stale"
+                  title="Tasks, die zu lange unverändert in In Progress oder Blocked liegen"
+                >
+                  ◴ {stats.stale}
                 </span>
               )}
             </div>

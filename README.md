@@ -25,7 +25,7 @@ allen gleichzeitig.
 | `npm start` | Build + Server (der normale Weg) |
 | `npm run serve` | Nur den Server starten, ohne neu zu bauen |
 | `npm run dev` | Vite-Dev-Server (`:5173`) + API-Server, mit Hot Reload |
-| `npm test` | Vitest, 61 Tests |
+| `npm test` | Vitest, 70 Tests |
 | `npm run typecheck` | TypeScript strict prüfen |
 
 Umgebungsvariablen: `DEFCON1_PORT` (Standard `7777`), `DEFCON1_HOST` (Standard
@@ -86,6 +86,12 @@ Dafür ist das UI gebaut:
   öffnet die Projekteinstellungen.
 * **Deadline pro Projekt**: Tagesdatum plus Countdown, in der Lane und auf der
   Kachel. Lanes sind standardmässig nach Deadline sortiert, die dringendste oben.
+* **Liegezeit**: jede Karte merkt sich, wann sie in ihre aktuelle Spalte kam.
+  Bleibt sie zu lange stehen — In Progress ab 3 Tagen, Blocked ab 2 —, trägt sie
+  ein violettes `◴ 6 T`, und Lane, Kachel und Kopfzeile zählen die
+  Stehengelassenen. DEFCON sagt, was wichtig ist; die Liegezeit sagt, was
+  vergessen wurde. Umsortieren in der Spalte oder ein Wechsel des Projekts
+  starten die Uhr nicht neu, nur ein echter Spaltenwechsel.
 * **Sticky Spaltenköpfe und Lane-Schiene**: beim Scrollen bleibt sichtbar, wo du
   bist.
 * **Gedeckelte Zellenhöhe**: eine überfüllte Lane scrollt intern statt die
