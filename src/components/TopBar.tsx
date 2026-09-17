@@ -1,5 +1,15 @@
 import { DEFCON_BY_LEVEL, DEFCON_LEVELS } from '../constants'
-import type { Defcon, Density, LaneSort, Prefs, SaveState, StorageMode } from '../types'
+import { langCode, LANGS, langName, useT } from '../i18n'
+import type {
+  Defcon,
+  Density,
+  Lang,
+  LaneSort,
+  Prefs,
+  SaveState,
+  StorageMode,
+  TaskSort,
+} from '../types'
 
 interface Props {
   query: string
@@ -10,8 +20,11 @@ interface Props {
   prefs: Prefs
   onDensity: (value: Density) => void
   onLaneSort: (value: LaneSort) => void
+  onTaskSort: (value: TaskSort) => void
+  onLang: (value: Lang) => void
   onToggleHideDone: () => void
   onToggleHideEmpty: () => void
+  onToggleSound: () => void
   mode: StorageMode
   saveState: SaveState
   /** Lowest (= most urgent) DEFCON level among all open tasks. */
@@ -30,19 +43,6 @@ interface Props {
   onHelp: () => void
 }
 
-const MODE_LABEL: Record<StorageMode, string> = {
-  loading: 'verbinde …',
-  server: 'data/board.json',
-  local: 'nur dieser Browser',
-}
-
-const SAVE_LABEL: Record<SaveState, string> = {
-  idle: '',
-  saving: ' · speichert',
-  saved: ' · gespeichert',
-  error: ' · Fehler',
-}
-
 export function TopBar({
   query,
   onQuery,
@@ -52,8 +52,11 @@ export function TopBar({
   prefs,
   onDensity,
   onLaneSort,
+  onTaskSort,
+  onLang,
   onToggleHideDone,
   onToggleHideEmpty,
+  onToggleSound,
   mode,
   saveState,
   alertLevel,
@@ -68,6 +71,7 @@ export function TopBar({
   onImport,
   onHelp,
 }: Props) {
+  const t = useT()
   const alert = alertLevel ? DEFCON_BY_LEVEL[alertLevel] : null
 
   return (
@@ -85,7 +89,7 @@ export function TopBar({
             className="alert-pill"
             data-live={alert.level <= 2}
             style={{ color: alert.color, borderColor: alert.color }}
-            title={`Dringendste offene Task: DEFCON ${alert.level} — ${alert.code}`}
+            title={t.topbar.alertTitle(alert.level, alert.code)}
           >
             <span className="alert-dot" />
             Defcon {alert.level}
@@ -102,8 +106,8 @@ export function TopBar({
             ref={searchRef}
             type="text"
             value={query}
-            placeholder="Tasks durchsuchen  /"
-            aria-label="Tasks durchsuchen"
+            placeholder={t.topbar.searchPlaceholder}
+            aria-label={t.topbar.searchLabel}
             onChange={(event) => onQuery(event.target.value)}
             onKeyDown={(event) => {
               event.stopPropagation()
@@ -118,7 +122,7 @@ export function TopBar({
               type="button"
               className="search-clear"
               onClick={() => onQuery('')}
-              title="Suche leeren"
+              title={t.topbar.clearSearch}
             >
               ✕
             </button>
@@ -129,24 +133,20 @@ export function TopBar({
           className="sync"
           data-mode={mode}
           data-state={saveState}
-          title={
-            mode === 'server'
-              ? 'Daten liegen in data/board.json — für alle Browser gleich'
-              : 'Kein Server erreichbar: Daten liegen nur in diesem Browser. Starte "npm start" für browserübergreifende Speicherung.'
-          }
+          title={mode === 'server' ? t.topbar.syncTitle.server : t.topbar.syncTitle.local}
         >
           <span className="sync-dot" />
-          {MODE_LABEL[mode]}
-          {SAVE_LABEL[saveState]}
+          {t.topbar.mode[mode]}
+          {t.topbar.saveSuffix[saveState]}
         </span>
 
-        <button type="button" className="btn sm" onClick={onExport} title="Board als JSON sichern">
-          Export
+        <button type="button" className="btn sm" onClick={onExport} title={t.topbar.exportTitle}>
+          {t.topbar.export}
         </button>
-        <button type="button" className="btn sm" onClick={onImport} title="Board aus JSON laden">
-          Import
+        <button type="button" className="btn sm" onClick={onImport} title={t.topbar.importTitle}>
+          {t.topbar.import}
         </button>
-        <button type="button" className="btn icon" onClick={onHelp} title="Hilfe & Shortcuts (?)">
+        <button type="button" className="btn icon" onClick={onHelp} title={t.topbar.helpTitle}>
           ?
         </button>
       </div>
@@ -157,15 +157,15 @@ export function TopBar({
           className="chip"
           aria-pressed={todayOpen}
           onClick={onToggleToday}
-          title="Heute-Ansicht über alle Projekte: überfällig, heute fällig, in Arbeit, DEFCON 1–2 (t)"
+          title={t.topbar.todayTitle}
         >
-          Heute
+          {t.topbar.today}
           {todayCount > 0 && <b>{todayCount}</b>}
         </button>
 
         <span className="divider" />
 
-        <span className="micro">Defcon</span>
+        <span className="micro">{t.topbar.defconLabel}</span>
         {DEFCON_LEVELS.map((level) => {
           const meta = DEFCON_BY_LEVEL[level]
           const active = defconFilter.has(level)
@@ -176,7 +176,7 @@ export function TopBar({
               className="chip"
               aria-pressed={active}
               onClick={() => onToggleDefcon(level)}
-              title={`DEFCON ${level} — ${meta.code} (${meta.label})`}
+              title={t.defcon.badgeTitle(level, meta.code, t.defcon.label[level])}
             >
               <span className="chip-swatch" style={{ background: meta.color }} />
               {level}
@@ -191,65 +191,112 @@ export function TopBar({
           className="chip"
           aria-pressed={prefs.hideDone}
           onClick={onToggleHideDone}
-          title="Done-Spalte auf die Zählung schrumpfen und Platz gewinnen"
+          title={t.topbar.hideDoneTitle}
         >
-          Done schmal
+          {t.topbar.hideDone}
         </button>
         <button
           type="button"
           className="chip"
           aria-pressed={prefs.hideEmptyLanes}
           onClick={onToggleHideEmpty}
-          title="Swimlanes ohne passende Tasks ausblenden"
+          title={t.topbar.hideEmptyTitle}
         >
-          Leere Lanes aus
+          {t.topbar.hideEmpty}
+        </button>
+        <button
+          type="button"
+          className="chip"
+          aria-pressed={prefs.sound}
+          onClick={onToggleSound}
+          title={t.topbar.alarmTitle}
+        >
+          {t.topbar.alarm}
         </button>
 
         <span className="divider" />
 
-        <span className="micro">Dichte</span>
-        <div className="seg" role="group" aria-label="Dichte">
+        <span className="micro">{t.topbar.densityLabel}</span>
+        <div className="seg" role="group" aria-label={t.topbar.densityLabel}>
           <button
             type="button"
             aria-pressed={prefs.density === 'comfort'}
             onClick={() => onDensity('comfort')}
           >
-            Komfort
+            {t.topbar.comfort}
           </button>
           <button
             type="button"
             aria-pressed={prefs.density === 'compact'}
             onClick={() => onDensity('compact')}
           >
-            Kompakt
+            {t.topbar.compact}
           </button>
         </div>
 
-        <span className="micro">Lanes</span>
-        <div className="seg" role="group" aria-label="Reihenfolge der Swimlanes">
+        <span className="micro">{t.topbar.lanesLabel}</span>
+        <div className="seg" role="group" aria-label={t.topbar.lanesLabel}>
           <button
             type="button"
             aria-pressed={prefs.laneSort === 'deadline'}
             onClick={() => onLaneSort('deadline')}
-            title="Dringendste Deadline oben"
+            title={t.topbar.sortDeadlineTitle}
           >
-            Deadline
+            {t.topbar.sortDeadline}
           </button>
           <button
             type="button"
             aria-pressed={prefs.laneSort === 'manual'}
             onClick={() => onLaneSort('manual')}
-            title="Eigene Reihenfolge (mit ↑ ↓ in der Lane)"
+            title={t.topbar.sortManualTitle}
           >
-            Manuell
+            {t.topbar.sortManual}
           </button>
+        </div>
+
+        <span className="micro">{t.topbar.tasksLabel}</span>
+        <div className="seg" role="group" aria-label={t.topbar.tasksLabel}>
+          <button
+            type="button"
+            aria-pressed={prefs.taskSort === 'defcon'}
+            onClick={() => onTaskSort('defcon')}
+            title={t.topbar.taskSortDefconTitle}
+          >
+            {t.topbar.taskSortDefcon}
+          </button>
+          <button
+            type="button"
+            aria-pressed={prefs.taskSort === 'manual'}
+            onClick={() => onTaskSort('manual')}
+            title={t.topbar.taskSortManualTitle}
+          >
+            {t.topbar.taskSortManual}
+          </button>
+        </div>
+
+        <span className="divider" />
+
+        <span className="micro">{t.topbar.langLabel}</span>
+        <div className="seg" role="group" aria-label={t.topbar.langGroupLabel}>
+          {LANGS.map((lang) => (
+            <button
+              key={lang}
+              type="button"
+              lang={lang}
+              aria-pressed={prefs.lang === lang}
+              onClick={() => onLang(lang)}
+              // Always the endonym, so the switch reads the same in both languages.
+              title={langName(lang)}
+            >
+              {langCode(lang)}
+            </button>
+          ))}
         </div>
 
         <span className="spacer" />
 
-        <span className="micro" title="Stehengelassen: zu lange unverändert in In Progress oder Blocked">
-          {openCount} offen · {doingCount} laufen · {blockedCount} blockiert
-          {staleCount > 0 && ` · ${staleCount} stehen`}
+        <span className="micro" title={t.topbar.staleCounterTitle}>
+          {t.topbar.counters(openCount, doingCount, blockedCount, staleCount)}
         </span>
       </div>
     </header>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
+import { useT } from '../i18n'
 
 interface Props {
   title: string
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function Dialog({ title, onClose, children, footer, wide = false }: Props) {
+  const t = useT()
   const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -46,7 +48,12 @@ export function Dialog({ title, onClose, children, footer, wide = false }: Props
       >
         <div className="dialog-head">
           <span className="dialog-title">{title}</span>
-          <button type="button" className="btn icon" onClick={onClose} title="Schliessen (Esc)">
+          <button
+            type="button"
+            className="btn icon"
+            onClick={onClose}
+            title={t.dialog.closeTitle}
+          >
             ✕
           </button>
         </div>

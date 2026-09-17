@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useT } from '../i18n'
 
 interface Props {
   onSubmit: (text: string) => void
@@ -10,6 +11,7 @@ interface Props {
  * type, Enter, type, Enter, Escape.
  */
 export function QuickAdd({ onSubmit, onClose }: Props) {
+  const t = useT()
   const [text, setText] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -23,8 +25,8 @@ export function QuickAdd({ onSubmit, onClose }: Props) {
         ref={inputRef}
         type="text"
         value={text}
-        placeholder="Task … !2 @morgen"
-        aria-label="Neuer Task"
+        placeholder={t.quickAdd.placeholder}
+        aria-label={t.quickAdd.label}
         onChange={(event) => setText(event.target.value)}
         onBlur={() => {
           if (text.trim() === '') onClose()
@@ -47,7 +49,13 @@ export function QuickAdd({ onSubmit, onClose }: Props) {
         }}
       />
       <div className="quick-add-hint">
-        <kbd>!1</kbd>–<kbd>!5</kbd> DEFCON · <kbd>@morgen</kbd> <kbd>@fr</kbd> <kbd>@+3d</kbd> fällig
+        <kbd>!1</kbd>–<kbd>!5</kbd> {t.quickAdd.hintDefcon} ·{' '}
+        {t.quickAdd.hintTokens.map((token) => (
+          <span key={token}>
+            <kbd>{token}</kbd>{' '}
+          </span>
+        ))}
+        {t.quickAdd.hintDue}
       </div>
     </div>
   )

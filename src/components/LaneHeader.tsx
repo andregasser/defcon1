@@ -1,3 +1,4 @@
+import { useT } from '../i18n'
 import { vars } from '../lib/css'
 import type { ProjectStats } from '../lib/board'
 import type { LaneSort, Project } from '../types'
@@ -28,6 +29,8 @@ export function LaneHeader({
   onEdit,
   onMove,
 }: Props) {
+  const t = useT()
+
   return (
     <div
       className="lane-head"
@@ -39,7 +42,7 @@ export function LaneHeader({
           type="button"
           className="btn icon"
           onClick={() => onToggleCollapsed(project.id)}
-          title={collapsed ? 'Swimlane aufklappen' : 'Swimlane einklappen'}
+          title={collapsed ? t.lane.expand : t.lane.collapse}
           aria-expanded={!collapsed}
         >
           {collapsed ? '▸' : '▾'}
@@ -49,7 +52,7 @@ export function LaneHeader({
           type="button"
           className="lane-name"
           onClick={() => onSolo(project.id)}
-          title={focused ? 'Fokus aufheben' : `Nur "${project.name}" anzeigen`}
+          title={focused ? t.lane.unfocus : t.lane.solo(project.name)}
         >
           {project.name}
         </button>
@@ -61,7 +64,7 @@ export function LaneHeader({
                 type="button"
                 className="btn icon"
                 onClick={() => onMove(project.id, -1)}
-                title="Nach oben"
+                title={t.lane.up}
               >
                 ↑
               </button>
@@ -69,7 +72,7 @@ export function LaneHeader({
                 type="button"
                 className="btn icon"
                 onClick={() => onMove(project.id, 1)}
-                title="Nach unten"
+                title={t.lane.down}
               >
                 ↓
               </button>
@@ -79,7 +82,7 @@ export function LaneHeader({
             type="button"
             className="btn icon"
             onClick={() => onEdit(project.id)}
-            title="Projekt bearbeiten"
+            title={t.lane.edit}
           >
             ✎
           </button>
@@ -91,7 +94,7 @@ export function LaneHeader({
       {!collapsed && (
         <>
           <div className="lane-meter-wrap">
-            <div className="meter" title={`${stats.done} von ${stats.total} erledigt`}>
+            <div className="meter" title={t.lane.meterTitle(stats.done, stats.total)}>
               <div
                 className="meter-fill"
                 style={{ ...vars({ '--meter-color': project.color }), width: `${stats.percent}%` }}
@@ -99,24 +102,22 @@ export function LaneHeader({
             </div>
           </div>
           <div className="lane-meta">
-            <span className="micro">
-              {stats.open} offen · {stats.percent}%
-            </span>
+            <span className="micro">{t.lane.meta(stats.open, stats.percent)}</span>
           </div>
           {(stats.hot > 0 || stats.blocked > 0 || stats.overdue > 0 || stats.stale > 0) && (
             <div className="lane-badges">
               {stats.hot > 0 && (
-                <span className="badge" data-tone="hot" title="Offene Tasks auf DEFCON 1–2">
+                <span className="badge" data-tone="hot" title={t.lane.hotTitle}>
                   ▲ {stats.hot}
                 </span>
               )}
               {stats.blocked > 0 && (
-                <span className="badge" data-tone="blocked" title="Blockierte Tasks">
+                <span className="badge" data-tone="blocked" title={t.lane.blockedTitle}>
                   ⏸ {stats.blocked}
                 </span>
               )}
               {stats.overdue > 0 && (
-                <span className="badge" data-tone="hot" title="Tasks über dem Fälligkeitsdatum">
+                <span className="badge" data-tone="hot" title={t.lane.overdueTitle}>
                   ◷ {stats.overdue}
                 </span>
               )}
@@ -124,7 +125,7 @@ export function LaneHeader({
                 <span
                   className="badge"
                   data-tone="stale"
-                  title="Tasks, die zu lange unverändert in In Progress oder Blocked liegen"
+                  title={t.lane.staleTitle}
                 >
                   ◴ {stats.stale}
                 </span>

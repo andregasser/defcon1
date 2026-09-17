@@ -1,4 +1,5 @@
 import { DEFCON_BY_LEVEL, STATUS_BY_ID } from '../constants'
+import { useLang, useT } from '../i18n'
 import { checklistProgress, staleDays } from '../lib/board'
 import { vars } from '../lib/css'
 import { dateTone, formatDateShort } from '../lib/date'
@@ -31,14 +32,16 @@ const STATUS_TONE: Partial<Record<Status, string>> = {
  * whatever is highlighted here.
  */
 export function TodayView({ sections, projectsById, selectedId, focused, onSelect, onOpen }: Props) {
+  const t = useT()
+
   if (sections.length === 0) {
     return (
       <div className="today-empty">
         <p>
-          Nichts überfällig, nichts heute fällig, nichts in Arbeit, nichts auf DEFCON 1–2.
-          {focused && ' — im aktuellen Projektfokus.'}
+          {t.today.empty}
+          {focused && t.today.emptyFocused}
         </p>
-        <span className="micro">Zurück zum Board mit t oder Escape</span>
+        <span className="micro">{t.today.back}</span>
       </div>
     )
   }
@@ -49,9 +52,9 @@ export function TodayView({ sections, projectsById, selectedId, focused, onSelec
         <section key={section.id} className="today-group">
           <div className="today-head">
             <span className="today-label" data-section={section.id}>
-              {section.label}
+              {t.today.sections[section.id].label}
             </span>
-            <span className="micro">{section.hint}</span>
+            <span className="micro">{t.today.sections[section.id].hint}</span>
             <span className="spacer" />
             <span className="count">{section.tasks.length}</span>
           </div>
@@ -69,9 +72,7 @@ export function TodayView({ sections, projectsById, selectedId, focused, onSelec
         </section>
       ))}
 
-      <span className="micro today-foot">
-        Klick markiert · Doppelklick öffnet · 1–5 verschiebt · x auf Done · t zurück zum Board
-      </span>
+      <span className="micro today-foot">{t.today.foot}</span>
     </div>
   )
 }
@@ -85,6 +86,8 @@ interface RowProps {
 }
 
 function TodayRow({ task, project, selected, onSelect, onOpen }: RowProps) {
+  const t = useT()
+  const lang = useLang()
   const dueTone = dateTone(task.due, 3)
   const stale = staleDays(task)
   const steps = checklistProgress(task)
@@ -109,7 +112,7 @@ function TodayRow({ task, project, selected, onSelect, onOpen }: RowProps) {
         <span
           className="steps"
           data-complete={steps.done === steps.total}
-          title={`Checkliste: ${steps.done} von ${steps.total} Schritten erledigt`}
+          title={t.card.stepsTitle(steps.done, steps.total)}
         >
           <span aria-hidden="true">{steps.done === steps.total ? '☑' : '☐'}</span>
           {steps.done}/{steps.total}
@@ -119,14 +122,14 @@ function TodayRow({ task, project, selected, onSelect, onOpen }: RowProps) {
       {task.due && (
         <span className="due" data-tone={dueTone}>
           <span aria-hidden="true">{dueTone === 'overdue' ? '▲' : '◷'}</span>
-          {formatDateShort(task.due)}
+          {formatDateShort(task.due, lang)}
         </span>
       )}
 
       {stale !== null && (
-        <span className="stale" title={`Liegt seit ${stale} Tagen unverändert in "${status.label}"`}>
+        <span className="stale" title={t.card.staleTitle(stale, status.label)}>
           <span aria-hidden="true">◴</span>
-          {stale} T
+          {t.card.staleBadge(stale)}
         </span>
       )}
 

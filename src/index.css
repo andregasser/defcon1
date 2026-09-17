@@ -41,14 +41,14 @@
 [data-density='comfort'] {
   --cell-max: 348px;
   --cell-min: 60px;
-  --card-py: 7px;
+  --card-py: 8px;
   --card-fs: 13px;
   --lane-py: 10px;
 }
 [data-density='compact'] {
   --cell-max: 208px;
   --cell-min: 44px;
-  --card-py: 3px;
+  --card-py: 5px;
   --card-fs: 12px;
   --lane-py: 6px;
 }
@@ -547,9 +547,23 @@ select {
   font-size: 13px;
   font-weight: 600;
   line-height: 1.25;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* A project title is never cut off: half a name is worse than a taller tile.
+     Long names wrap, mid-word if there is nowhere else to break. */
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.tile-desc {
+  margin: 0;
+  padding-left: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--fg-1);
+  /* Shown in full — the tile and its row grow, the text is never clipped.
+     Line breaks the user typed are kept. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .tile-pct {
@@ -790,9 +804,10 @@ select {
   font-size: 13px;
   font-weight: 600;
   line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Never cut off, same as .tile-name — the rail grows in height instead.
+     Buttons do not wrap by default, hence the explicit white-space. */
+  white-space: normal;
+  overflow-wrap: anywhere;
   background: none;
   border: 0;
   padding: 0;
@@ -875,6 +890,18 @@ select {
   box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.45);
 }
 
+/**
+ * Nothing in a cell is ever squeezed below its own height. The cell is a column
+ * flex container with a `max-height`, so its children would shrink by default —
+ * and `min-height: auto` does not protect them, because that automatic minimum
+ * is dropped for any item whose `overflow` is not `visible` (the card clips its
+ * DEFCON stripe, so it qualifies). The result was a wrapped title losing its
+ * last line. An overflowing cell scrolls instead; that is what it is for.
+ */
+.cell > * {
+  flex: 0 0 auto;
+}
+
 .cell-add {
   align-self: stretch;
   padding: 3px;
@@ -937,7 +964,9 @@ select {
   display: flex;
   align-items: flex-start;
   gap: 7px;
-  padding: var(--card-py) 7px var(--card-py) 8px;
+  /* A touch more air than the border needs: the left value also swallows the
+     3px DEFCON stripe, so the text keeps the same inset on both sides. */
+  padding: var(--card-py) 10px var(--card-py) 12px;
   background: var(--bg-2);
   border: 1px solid var(--line-1);
   border-radius: 5px;
@@ -986,14 +1015,18 @@ select {
   gap: 3px;
 }
 
+/**
+ * Task text is never cut off — not in compact density either. A title wraps over
+ * as many lines as it needs; long unbroken strings (URLs, ticket keys) break
+ * mid-word rather than escaping the card.
+ */
 .card-title {
   overflow-wrap: anywhere;
 }
 
-[data-density='compact'] .card-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* Wrapped lines sit a hair tighter when many lanes share the screen. */
+[data-density='compact'] .card {
+  line-height: 1.3;
 }
 
 .card-meta {
@@ -1014,7 +1047,9 @@ select {
   font-family: var(--mono);
   font-size: 9px;
   font-weight: 700;
-  color: #08090c;
+  /* The level number sits on the signal colour, so the colour decides the ink:
+     dark on yellow and green, light on the deep red and blue. */
+  color: var(--dc-ink, #08090c);
   background: var(--dc-color);
 }
 
@@ -1071,18 +1106,6 @@ select {
   color: var(--fg-2);
   font-family: var(--mono);
   font-size: 10px;
-}
-
-.card-project {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--fg-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
 }
 
 .drag-overlay .card {
@@ -1578,6 +1601,12 @@ kbd {
   gap: 5px 12px;
   font-size: 12px;
   color: var(--fg-1);
+}
+
+.dl-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .dl code {

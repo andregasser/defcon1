@@ -46,6 +46,10 @@ const MIME = {
   '.webp': 'image/webp',
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
+  '.mp3': 'audio/mpeg',
+  '.m4a': 'audio/mp4',
+  '.ogg': 'audio/ogg',
+  '.wav': 'audio/wav',
   '.map': 'application/json; charset=utf-8',
 }
 
@@ -71,7 +75,7 @@ async function readState() {
     }
   } catch (error) {
     if (error.code !== 'ENOENT') {
-      console.error(`[defcon1] ${DATA_FILE} unlesbar (${error.message}) — starte mit leerem Board.`)
+      console.error(`[defcon1] ${DATA_FILE} is unreadable (${error.message}) — starting with an empty board.`)
     }
     cache = structuredClone(EMPTY_STATE)
   }
@@ -90,7 +94,7 @@ async function backup() {
       await fs.unlink(path.join(BACKUP_DIR, stale)).catch(() => {})
     }
   } catch (error) {
-    if (error.code !== 'ENOENT') console.error('[defcon1] Backup fehlgeschlagen:', error.message)
+    if (error.code !== 'ENOENT') console.error('[defcon1] backup failed:', error.message)
   }
 }
 
@@ -146,7 +150,7 @@ function readBody(req) {
     req.on('data', (chunk) => {
       size += chunk.length
       if (size > MAX_BODY) {
-        reject(new Error('Body zu gross'))
+        reject(new Error('body too large'))
         req.destroy()
         return
       }
@@ -181,23 +185,23 @@ async function handleApi(req, res, pathname) {
     try {
       payload = JSON.parse(await readBody(req))
     } catch (error) {
-      return sendJSON(res, 400, { error: `Ungültiger Request: ${error.message}` })
+      return sendJSON(res, 400, { error: `invalid request: ${error.message}` })
     }
     if (!validData(payload?.data)) {
-      return sendJSON(res, 400, { error: 'data.projects und data.tasks müssen Arrays sein' })
+      return sendJSON(res, 400, { error: 'data.projects and data.tasks must be arrays' })
     }
 
     const result = await saveState(Number(payload.rev) || 0, payload.data)
     if (result.conflict) {
       return sendJSON(res, 409, {
-        error: 'Board wurde zwischenzeitlich anderswo geändert',
+        error: 'the board was changed elsewhere in the meantime',
         ...result.state,
       })
     }
     return sendJSON(res, 200, { rev: result.state.rev, updatedAt: result.state.updatedAt })
   }
 
-  return sendJSON(res, 404, { error: 'Unbekannter Endpunkt' })
+  return sendJSON(res, 404, { error: 'unknown endpoint' })
 }
 
 async function serveStatic(res, pathname) {
@@ -206,7 +210,7 @@ async function serveStatic(res, pathname) {
 
   // Never escape dist/, whatever the client sends.
   if (!resolved.startsWith(DIST + path.sep) && resolved !== path.join(DIST, 'index.html')) {
-    return sendJSON(res, 403, { error: 'Verboten' })
+    return sendJSON(res, 403, { error: 'forbidden' })
   }
 
   let target = resolved
@@ -222,7 +226,7 @@ async function serveStatic(res, pathname) {
     await fs.access(target)
   } catch {
     res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' })
-    res.end('dist/ fehlt. Bitte zuerst "npm run build" ausführen (oder "npm run dev" nutzen).\n')
+    res.end('dist/ is missing. Run "npm run build" first (or use "npm run dev").\n')
     return
   }
 
@@ -243,12 +247,12 @@ const server = createServer(async (req, res) => {
       return
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') {
-      return sendJSON(res, 405, { error: 'Methode nicht erlaubt' })
+      return sendJSON(res, 405, { error: 'method not allowed' })
     }
     await serveStatic(res, pathname)
   } catch (error) {
     console.error('[defcon1]', error)
-    if (!res.headersSent) sendJSON(res, 500, { error: 'Interner Fehler' })
+    if (!res.headersSent) sendJSON(res, 500, { error: 'internal error' })
     else res.end()
   }
 })
@@ -257,16 +261,16 @@ server.listen(PORT, HOST, () => {
   console.log('')
   console.log('  ██  DEFCON 1  ██')
   console.log(`  Board:  http://${HOST}:${PORT}`)
-  console.log(`  Daten:  ${DATA_FILE}`)
-  console.log('  Beenden mit Ctrl+C')
+  console.log(`  Data:   ${DATA_FILE}`)
+  console.log('  Stop with Ctrl+C')
   console.log('')
 })
 
 server.on('error', (error) => {
   if (error.code === 'EADDRINUSE') {
     console.error(
-      `[defcon1] Port ${PORT} ist belegt. Läuft Defcon 1 schon? ` +
-        `Sonst mit DEFCON1_PORT=8080 npm start einen anderen Port wählen.`,
+      `[defcon1] port ${PORT} is taken. Is Defcon 1 already running? ` +
+        `Otherwise pick another port with DEFCON1_PORT=8080 npm start.`,
     )
     process.exit(1)
   }

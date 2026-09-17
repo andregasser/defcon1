@@ -6,8 +6,6 @@ export type TodaySectionId = 'overdue' | 'today' | 'doing' | 'hot'
 
 export interface TodaySection {
   id: TodaySectionId
-  label: string
-  hint: string
   tasks: Task[]
 }
 
@@ -54,11 +52,13 @@ export function todayList(tasks: Task[], from = new Date()): TodaySection[] {
   doing.sort(byUrgency)
   hot.sort(byUrgency)
 
+  // Only the ids: the headings live in the dictionaries, so grouping stays a
+  // pure function of the tasks and does not have to know the interface language.
   return [
-    { id: 'overdue' as const, label: 'Überfällig', hint: 'Termin verstrichen', tasks: overdue },
-    { id: 'today' as const, label: 'Heute fällig', hint: 'heute abgeben', tasks: dueToday },
-    { id: 'doing' as const, label: 'In Arbeit', hint: 'läuft gerade', tasks: doing },
-    { id: 'hot' as const, label: 'Brennt', hint: 'DEFCON 1–2, nicht in Arbeit', tasks: hot },
+    { id: 'overdue' as const, tasks: overdue },
+    { id: 'today' as const, tasks: dueToday },
+    { id: 'doing' as const, tasks: doing },
+    { id: 'hot' as const, tasks: hot },
   ].filter((section) => section.tasks.length > 0)
 }
 

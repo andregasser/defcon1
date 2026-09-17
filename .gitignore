@@ -1,5 +1,8 @@
-node_modules/
+# No trailing slash: in a git worktree node_modules is often a symlink, which a
+# directory-only pattern would not match.
+node_modules
 dist/
 
-# Your board and its rolling backups — local data, not source.
+# Your board and its rolling backups — local data, not source. Never commit these.
 data/
+*.board.json

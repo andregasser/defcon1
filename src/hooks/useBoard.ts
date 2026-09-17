@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { BoardData, SaveState, StorageMode } from '../types'
+import type { BoardData, BoardNotice, SaveState, StorageMode } from '../types'
 import {
   fetchState,
   loadLocalData,
@@ -17,8 +17,8 @@ export interface BoardStore {
   data: BoardData
   mode: StorageMode
   saveState: SaveState
-  /** Reachable file path on disk, when the persistence server answered. */
-  notice: string | null
+  /** Something worth telling the user, as a code the UI turns into a sentence. */
+  notice: BoardNotice | null
   clearNotice: () => void
   /** Applies a pure transformation and schedules a save. */
   update: (recipe: (data: BoardData) => BoardData) => void
@@ -40,7 +40,7 @@ export function useBoard(): BoardStore {
   const [data, setData] = useState<BoardData>(EMPTY)
   const [mode, setMode] = useState<StorageMode>('loading')
   const [saveState, setSaveState] = useState<SaveState>('idle')
-  const [notice, setNotice] = useState<string | null>(null)
+  const [notice, setNotice] = useState<BoardNotice | null>(null)
 
   const dataRef = useRef<BoardData>(EMPTY)
   const revRef = useRef(0)
@@ -50,10 +50,15 @@ export function useBoard(): BoardStore {
   const queuedRef = useRef(false)
   const pausedRef = useRef(false)
   const initializedRef = useRef(false)
+  /** Set once the user edits the board while in browser-only mode. */
+  const localEditRef = useRef(false)
 
   const commit = useCallback((next: BoardData, markDirty: boolean) => {
     dataRef.current = next
     dirtyRef.current = markDirty || dirtyRef.current
+    // Remembered for the whole session, not just until the next save: a later
+    // reconnect must not replace a board the user has been working on here.
+    if (markDirty && modeRef.current === 'local') localEditRef.current = true
     setData(next)
   }, [])
 
@@ -90,12 +95,12 @@ export function useBoard(): BoardStore {
       // overwritten changes we never saw.
       adopt(result.state.data, result.state.rev)
       setSaveState('idle')
-      setNotice('Board wurde in einem anderen Browser geändert — die neuere Version ist jetzt geladen.')
+      setNotice({ kind: 'conflict' })
       return
     }
 
     setSaveState('error')
-    setNotice(`Speichern fehlgeschlagen: ${result.error}`)
+    setNotice({ kind: 'saveFailed', detail: result.error })
   }, [adopt])
 
   const flush = useCallback(async () => {
@@ -116,45 +121,69 @@ export function useBoard(): BoardStore {
 
   /* ------------------------------------------------------------------ init */
 
+  /**
+   * Tries to reach the server and take over its board. Returns false when the
+   * server is not there, leaving the current mode and data untouched.
+   */
+  const connect = useCallback(async (): Promise<boolean> => {
+    const remote = await fetchState()
+    if (!remote) return false
+
+    modeRef.current = 'server'
+    setMode('server')
+
+    const local = loadLocalData()
+    const remoteEmpty = remote.data.projects.length === 0 && remote.data.tasks.length === 0
+    if (remoteEmpty && local && local.projects.length > 0) {
+      // First run with the server after using the browser-only fallback:
+      // carry the existing board over instead of showing an empty screen.
+      adopt(local, remote.rev)
+      dirtyRef.current = true
+      setNotice({ kind: 'migrated' })
+      void flush()
+      return true
+    }
+
+    adopt(remote.data, remote.rev)
+    return true
+  }, [adopt, flush])
+
   useEffect(() => {
     if (initializedRef.current) return
     initializedRef.current = true
     let cancelled = false
 
     void (async () => {
-      const remote = await fetchState()
+      if (await connect()) return
       if (cancelled) return
-
-      if (!remote) {
-        modeRef.current = 'local'
-        setMode('local')
-        const local = loadLocalData()
-        if (local) adopt(local, 0)
-        return
-      }
-
-      modeRef.current = 'server'
-      setMode('server')
-
+      modeRef.current = 'local'
+      setMode('local')
       const local = loadLocalData()
-      const remoteEmpty = remote.data.projects.length === 0 && remote.data.tasks.length === 0
-      if (remoteEmpty && local && local.projects.length > 0) {
-        // First run with the server after using the browser-only fallback:
-        // carry the existing board over instead of showing an empty screen.
-        adopt(local, remote.rev)
-        dirtyRef.current = true
-        setNotice('Board aus dem Browser-Speicher übernommen und in data/board.json gesichert.')
-        void flush()
-        return
-      }
-
-      adopt(remote.data, remote.rev)
+      if (local) adopt(local, 0)
     })()
 
     return () => {
       cancelled = true
     }
-  }, [adopt, flush])
+  }, [adopt, connect])
+
+  /* --------------------------------------------------------- reconnect */
+
+  /**
+   * Reloading the page while the server restarts used to strand it in
+   * browser-only mode for the rest of the session: the one initial fetch failed,
+   * nothing ever tried again, and the board looked empty until the next reload.
+   * So keep knocking — but only while nothing has been edited here, otherwise a
+   * browser-only session in progress would be pulled out from under the user.
+   */
+  useEffect(() => {
+    if (mode !== 'local' || localEditRef.current) return
+    const timer = setInterval(() => {
+      if (dirtyRef.current || savingRef.current || localEditRef.current) return
+      void connect()
+    }, POLL_INTERVAL_MS)
+    return () => clearInterval(timer)
+  }, [mode, connect])
 
   /* -------------------------------------------------------- debounced save */
 

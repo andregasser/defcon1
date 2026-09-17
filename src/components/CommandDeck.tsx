@@ -1,3 +1,4 @@
+import { useT } from '../i18n'
 import type { ProjectStats } from '../lib/board'
 import { vars } from '../lib/css'
 import type { Project } from '../types'
@@ -31,29 +32,30 @@ export function CommandDeck({
   onEditProject,
   onNewProject,
 }: Props) {
+  const t = useT()
   const focusing = focusedIds.size > 0
 
   return (
-    <section className="deck" aria-label="Projektübersicht">
+    <section className="deck" aria-label={t.deck.ariaLabel}>
       <div className="deck-head">
         <button
           type="button"
           className="btn icon"
           onClick={onToggleOpen}
           aria-expanded={open}
-          title={open ? 'Übersicht einklappen' : 'Übersicht aufklappen'}
+          title={open ? t.deck.collapse : t.deck.expand}
         >
           {open ? '▾' : '▸'}
         </button>
-        <span className="micro">Übersicht · {projects.length} Projekte</span>
+        <span className="micro">{t.deck.summary(projects.length)}</span>
         <span className="spacer" />
         {focusing && (
           <button type="button" className="btn sm" onClick={onClearFocus}>
-            Fokus aufheben ({focusedIds.size})
+            {t.deck.clearFocus(focusedIds.size)}
           </button>
         )}
         <button type="button" className="btn sm" onClick={onNewProject}>
-          + Projekt
+          {t.deck.newProject}
         </button>
       </div>
 
@@ -74,11 +76,7 @@ export function CommandDeck({
                 role="button"
                 tabIndex={0}
                 aria-pressed={focused}
-                title={
-                  focused
-                    ? 'Klick: aus dem Fokus nehmen'
-                    : 'Klick: auf dieses Projekt fokussieren (mehrere möglich)'
-                }
+                title={focused ? t.deck.tileFocused : t.deck.tileUnfocused}
                 onClick={() => onToggleFocus(project.id)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
@@ -98,6 +96,12 @@ export function CommandDeck({
                   <span className="tile-pct">{stats.percent}%</span>
                 </div>
 
+                {project.description !== '' && (
+                  // In full, never clipped: the deck is where you decide which
+                  // stream to work on, and a half sentence decides nothing.
+                  <p className="tile-desc">{project.description}</p>
+                )}
+
                 <div className="tile-body">
                   <DeadlineChip deadline={project.deadline} />
                   <div className="meter">
@@ -112,26 +116,26 @@ export function CommandDeck({
                 </div>
 
                 <div className="tile-badges">
-                  <span className="badge" data-tone="muted" title="Offene Tasks">
-                    {stats.open} offen
+                  <span className="badge" data-tone="muted" title={t.deck.openTitle}>
+                    {t.deck.openBadge(stats.open)}
                   </span>
                   {stats.doing > 0 && (
-                    <span className="badge" data-tone="doing" title="In Progress">
+                    <span className="badge" data-tone="doing" title={t.deck.doingTitle}>
                       ▸ {stats.doing}
                     </span>
                   )}
                   {stats.blocked > 0 && (
-                    <span className="badge" data-tone="blocked" title="Blockiert">
+                    <span className="badge" data-tone="blocked" title={t.deck.blockedTitle}>
                       ⏸ {stats.blocked}
                     </span>
                   )}
                   {stats.hot > 0 && (
-                    <span className="badge" data-tone="hot" title="Offen auf DEFCON 1–2">
+                    <span className="badge" data-tone="hot" title={t.deck.hotTitle}>
                       ▲ {stats.hot}
                     </span>
                   )}
                   {stats.overdue > 0 && (
-                    <span className="badge" data-tone="hot" title="Überfällige Tasks">
+                    <span className="badge" data-tone="hot" title={t.deck.overdueTitle}>
                       ◷ {stats.overdue}
                     </span>
                   )}
@@ -139,7 +143,7 @@ export function CommandDeck({
                     <span
                       className="badge"
                       data-tone="stale"
-                      title="Stehengelassen: zu lange unverändert in In Progress oder Blocked"
+                      title={t.deck.staleTitle}
                     >
                       ◴ {stats.stale}
                     </span>

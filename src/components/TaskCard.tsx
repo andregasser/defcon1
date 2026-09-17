@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { DEFCON_BY_LEVEL, STATUS_BY_ID } from '../constants'
+import { useLang, useT } from '../i18n'
 import { checklistProgress, staleDays } from '../lib/board'
 import { vars } from '../lib/css'
 import { dateTone, formatDateShort } from '../lib/date'
@@ -20,6 +21,8 @@ interface Props {
  * every drag move re-renders the tree. Only the touched cards should re-paint.
  */
 export const TaskCard = memo(function TaskCard({ task, selected, onSelect, onOpen }: Props) {
+  const t = useT()
+  const lang = useLang()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
     data: { type: 'task', projectId: task.projectId, status: task.status },
@@ -56,7 +59,7 @@ export const TaskCard = memo(function TaskCard({ task, selected, onSelect, onOpe
               <span
                 className="steps"
                 data-complete={steps.done === steps.total}
-                title={`Checkliste: ${steps.done} von ${steps.total} Schritten erledigt`}
+                title={t.card.stepsTitle(steps.done, steps.total)}
               >
                 <span aria-hidden="true">{steps.done === steps.total ? '☑' : '☐'}</span>
                 {steps.done}/{steps.total}
@@ -65,20 +68,20 @@ export const TaskCard = memo(function TaskCard({ task, selected, onSelect, onOpe
             {task.due && (
               <span className="due" data-tone={dueTone}>
                 <span aria-hidden="true">{dueTone === 'overdue' ? '▲' : '◷'}</span>
-                {formatDateShort(task.due)}
+                {formatDateShort(task.due, lang)}
               </span>
             )}
             {stale !== null && (
               <span
                 className="stale"
-                title={`Liegt seit ${stale} Tagen unverändert in "${STATUS_BY_ID[task.status].label}"`}
+                title={t.card.staleTitle(stale, STATUS_BY_ID[task.status].label)}
               >
                 <span aria-hidden="true">◴</span>
-                {stale} T
+                {t.card.staleBadge(stale)}
               </span>
             )}
             {task.note && (
-              <span className="note-dot" title="Notiz vorhanden">
+              <span className="note-dot" title={t.card.noteTitle}>
                 ≡
               </span>
             )}

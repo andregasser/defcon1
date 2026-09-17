@@ -26,6 +26,7 @@ import { TopBar } from './components/TopBar'
 import { STATUS_IDS } from './constants'
 import { useBoard } from './hooks/useBoard'
 import { usePrefs } from './hooks/usePrefs'
+import { getDict, I18nProvider } from './i18n'
 import {
   appendIndex,
   cellId,
@@ -41,11 +42,12 @@ import {
   staleDays,
   type ProjectStats,
 } from './lib/board'
+import { playAlarm, preloadAlarm } from './lib/alarm'
 import { nowISO } from './lib/date'
 import { parseQuickAdd } from './lib/quickAdd'
-import { downloadBackup, parseBackup } from './lib/storage'
+import { downloadBackup, EMPTY_BACKUP, parseBackup } from './lib/storage'
 import { todayCount, todayList } from './lib/today'
-import type { Defcon, Status, Task } from './types'
+import type { Defcon, Lang, Status, Task } from './types'
 
 /**
  * Pointer-first collision detection. Whatever sits under the cursor wins, which
@@ -62,6 +64,9 @@ export default function App() {
   const { data, mode } = board
   const { prefs, set, toggle, toggleCollapsed, setAllCollapsed, toggleFocus, soloFocus, clearFocus } =
     usePrefs()
+
+  // App sits above the I18nProvider it mounts, so it reads the dictionary itself.
+  const t = getDict(prefs.lang)
 
   const [query, setQuery] = useState('')
   const [defconFilter, setDefconFilter] = useState<Defcon[]>([])
@@ -100,7 +105,7 @@ export default function App() {
     })
   }, [data.tasks, query, defconSet])
 
-  const cells = useMemo(() => groupByCell(matching), [matching])
+  const cells = useMemo(() => groupByCell(matching, prefs.taskSort), [matching, prefs.taskSort])
 
   const cellTotals = useMemo(() => {
     const totals = new Map<string, number>()
@@ -120,13 +125,25 @@ export default function App() {
   }, [data.projects, data.tasks])
 
   const visibleProjects = useMemo(() => {
-    const filtersActive = prefs.hideEmptyLanes || query.trim() !== '' || defconSet.size > 0
+    const taskFilterActive = query.trim() !== '' || defconSet.size > 0
     return sortedProjects.filter((project) => {
-      if (focusedIds.size > 0 && !focusedIds.has(project.id)) return false
-      if (!filtersActive) return true
-      return STATUS_IDS.some((status) => (cells.get(cellId(project.id, status))?.length ?? 0) > 0)
+      // An explicit focus outranks every other rule: the lanes picked in the deck
+      // are exactly the lanes the user asked for.
+      if (focusedIds.size > 0) return focusedIds.has(project.id)
+
+      const hasVisibleTask = STATUS_IDS.some(
+        (status) => (cells.get(cellId(project.id, status))?.length ?? 0) > 0,
+      )
+      if (hasVisibleTask) return true
+
+      // Nothing to show. A project without any tasks was not filtered away — it
+      // is simply new, so only the explicit switch may hide it. Otherwise there
+      // would be no cell left to add its first task to.
+      const total = statsByProject.get(project.id)?.total ?? 0
+      if (total === 0) return !prefs.hideEmptyLanes
+      return !(prefs.hideEmptyLanes || taskFilterActive)
     })
-  }, [sortedProjects, focusedIds, prefs.hideEmptyLanes, query, defconSet, cells])
+  }, [sortedProjects, focusedIds, prefs.hideEmptyLanes, query, defconSet, cells, statsByProject])
 
   const columnTotals = useMemo(() => {
     const totals = new Map<Status, number>()
@@ -210,10 +227,28 @@ export default function App() {
 
   /* --------------------------------------------------------------- actions */
 
+  useEffect(() => {
+    // Fetch the alarm file while nothing is on fire yet.
+    if (prefs.sound) preloadAlarm()
+  }, [prefs.sound])
+
+  /**
+   * The alarm for a task that just went to DEFCON 1. Called from the event
+   * handler rather than from inside a state updater — those may run twice.
+   */
+  const alarmIfCritical = useCallback(
+    (next: Defcon | null | undefined, previous: Defcon | null) => {
+      if (next !== 1 || previous === 1 || !prefs.sound) return
+      playAlarm()
+    },
+    [prefs.sound],
+  )
+
   const addTask = useCallback(
     (projectId: string, status: Status, text: string) => {
       const parsed = parseQuickAdd(text)
       if (parsed.title === '') return
+      alarmIfCritical(parsed.defcon, null)
       board.update((current) => ({
         ...current,
         tasks: [
@@ -225,11 +260,12 @@ export default function App() {
         ],
       }))
     },
-    [board],
+    [board, alarmIfCritical],
   )
 
   const updateTask = useCallback(
     (id: string, patch: Partial<Task>) => {
+      alarmIfCritical(patch.defcon, data.tasks.find((item) => item.id === id)?.defcon ?? null)
       board.update((current) => {
         const task = current.tasks.find((item) => item.id === id)
         if (!task) return current
@@ -260,7 +296,7 @@ export default function App() {
         }
       })
     },
-    [board],
+    [board, data.tasks, alarmIfCritical],
   )
 
   const deleteTask = useCallback(
@@ -286,7 +322,7 @@ export default function App() {
   )
 
   const saveProject = useCallback(
-    (values: { name: string; deadline: string | null; color: string }) => {
+    (values: { name: string; description: string; deadline: string | null; color: string }) => {
       board.update((current) => {
         if (projectDialogId) {
           return {
@@ -342,27 +378,24 @@ export default function App() {
       try {
         const imported = parseBackup(await file.text())
         const replace = window.confirm(
-          `Import: ${imported.projects.length} Projekte, ${imported.tasks.length} Tasks.\n\n` +
-            'OK ersetzt das aktuelle Board. Abbrechen bricht ab.',
+          t.confirm.import(imported.projects.length, imported.tasks.length),
         )
         if (replace) board.replaceAll(imported)
       } catch (error) {
-        window.alert(`Import fehlgeschlagen: ${(error as Error).message}`)
+        const message = (error as Error).message
+        window.alert(
+          t.confirm.importFailed(message === EMPTY_BACKUP ? t.confirm.importEmpty : message),
+        )
       }
     },
-    [board],
+    [board, t],
   )
 
   const loadDemo = useCallback(() => {
-    if (
-      data.projects.length > 0 &&
-      !window.confirm('Demo-Daten ersetzen das aktuelle Board. Fortfahren?')
-    ) {
-      return
-    }
-    board.replaceAll(createDemoData())
+    if (data.projects.length > 0 && !window.confirm(t.confirm.loadDemo)) return
+    board.replaceAll(createDemoData(prefs.lang))
     setHelpOpen(false)
-  }, [board, data.projects.length])
+  }, [board, data.projects.length, prefs.lang, t])
 
   /* ------------------------------------------------------------ drag & drop */
 
@@ -491,12 +524,18 @@ export default function App() {
           return
         case 'n': {
           event.preventDefault()
-          const first = visibleProjects[0] ?? sortedProjects[0]
-          if (!first) return
+          // Prefer the lane the user is working in — the selected task's project.
+          const target =
+            (selectedTask
+              ? visibleProjects.find((project) => project.id === selectedTask.projectId)
+              : undefined) ??
+            visibleProjects[0] ??
+            sortedProjects[0]
+          if (!target) return
           // Quick add lives in a cell, so the board has to be on screen for it.
           setTodayOpen(false)
-          if (collapsedIds.has(first.id)) toggleCollapsed(first.id)
-          setQuickAddCell(cellId(first.id, 'backlog'))
+          if (collapsedIds.has(target.id)) toggleCollapsed(target.id)
+          setQuickAddCell(cellId(target.id, 'backlog'))
           return
         }
         case 'p':
@@ -525,7 +564,7 @@ export default function App() {
         case 'Delete':
           if (!selectedTask) return
           event.preventDefault()
-          if (window.confirm(`Task löschen?\n\n${selectedTask.title}`)) deleteTask(selectedTask.id)
+          if (window.confirm(t.confirm.deleteTask(selectedTask.title))) deleteTask(selectedTask.id)
           return
         case 'Escape':
           event.preventDefault()
@@ -562,177 +601,195 @@ export default function App() {
     moveTaskToStatus,
     deleteTask,
     clearFocus,
+    t,
   ])
+
+  /* ------------------------------------------------------------- document */
+
+  useEffect(() => {
+    // Screen readers and the browser's own UI read these, so they follow along.
+    document.documentElement.lang = prefs.lang
+    document.title = t.documentTitle
+  }, [prefs.lang, t])
 
   /* ------------------------------------------------------------------ view */
 
   const showEmptyState = mode !== 'loading' && data.projects.length === 0
 
+  const notice = board.notice
+  const noticeText =
+    notice === null
+      ? null
+      : notice.kind === 'saveFailed'
+        ? t.notice.saveFailed(notice.detail)
+        : t.notice[notice.kind]
+
   return (
-    <div className="app" data-density={prefs.density}>
-      <TopBar
-        query={query}
-        onQuery={setQuery}
-        searchRef={searchRef}
-        defconFilter={defconSet}
-        onToggleDefcon={toggleDefcon}
-        prefs={prefs}
-        onDensity={(value) => set('density', value)}
-        onLaneSort={(value) => set('laneSort', value)}
-        onToggleHideDone={() => toggle('hideDone')}
-        onToggleHideEmpty={() => toggle('hideEmptyLanes')}
-        mode={mode}
-        saveState={board.saveState}
-        alertLevel={globals.alert}
-        openCount={globals.open}
-        doingCount={globals.doing}
-        blockedCount={globals.blocked}
-        staleCount={globals.stale}
-        todayOpen={todayOpen}
-        todayCount={todayTotal}
-        onToggleToday={() => setTodayOpen((current) => !current)}
-        onExport={() => downloadBackup(data)}
-        onImport={() => importRef.current?.click()}
-        onHelp={() => setHelpOpen(true)}
-      />
-
-      {board.notice && (
-        <div className="notice">
-          <span>{board.notice}</span>
-          <span className="spacer" />
-          <button type="button" className="btn sm" onClick={board.clearNotice}>
-            OK
-          </button>
-        </div>
-      )}
-
-      {!showEmptyState && (
-        <CommandDeck
-          projects={sortedProjects}
-          statsByProject={statsByProject}
-          focusedIds={focusedIds}
-          open={prefs.deckOpen}
-          onToggleOpen={() => toggle('deckOpen')}
-          onToggleFocus={toggleFocus}
-          onClearFocus={clearFocus}
-          onEditProject={setProjectDialogId}
-          onNewProject={() => setProjectDialogId(null)}
+    <I18nProvider lang={prefs.lang}>
+      <div className="app" data-density={prefs.density}>
+        <TopBar
+          query={query}
+          onQuery={setQuery}
+          searchRef={searchRef}
+          defconFilter={defconSet}
+          onToggleDefcon={toggleDefcon}
+          prefs={prefs}
+          onDensity={(value) => set('density', value)}
+          onLaneSort={(value) => set('laneSort', value)}
+          onTaskSort={(value) => set('taskSort', value)}
+          onLang={(value: Lang) => set('lang', value)}
+          onToggleHideDone={() => toggle('hideDone')}
+          onToggleHideEmpty={() => toggle('hideEmptyLanes')}
+          onToggleSound={() => toggle('sound')}
+          mode={mode}
+          saveState={board.saveState}
+          alertLevel={globals.alert}
+          openCount={globals.open}
+          doingCount={globals.doing}
+          blockedCount={globals.blocked}
+          staleCount={globals.stale}
+          todayOpen={todayOpen}
+          todayCount={todayTotal}
+          onToggleToday={() => setTodayOpen((current) => !current)}
+          onExport={() => downloadBackup(data)}
+          onImport={() => importRef.current?.click()}
+          onHelp={() => setHelpOpen(true)}
         />
-      )}
 
-      {showEmptyState ? (
-        <div className="board-empty">
-          <div className="board-empty-inner">
-            <h2>Defcon 1</h2>
-            <p>
-              Ein Taskboard für parallele Projekte. Jedes Projekt ist eine Swimlane mit eigener
-              Deadline, jeder Task hat eine DEFCON-Stufe von 1 (sofort) bis 5 (irgendwann). Tasks
-              zieht man mit der Maus von Spalte zu Spalte.
-            </p>
-            <div className="empty-actions">
-              <button type="button" className="btn primary" onClick={() => setProjectDialogId(null)}>
-                Erstes Projekt anlegen
-              </button>
-              <button type="button" className="btn" onClick={loadDemo}>
-                Demo-Daten laden
-              </button>
-            </div>
-            <span className="micro">
-              Speicherort: {mode === 'server' ? 'data/board.json' : 'nur dieser Browser'}
-            </span>
+        {board.notice && (
+          <div className="notice">
+            <span>{noticeText}</span>
+            <span className="spacer" />
+            <button type="button" className="btn sm" onClick={board.clearNotice}>
+              {t.actions.ok}
+            </button>
           </div>
-        </div>
-      ) : todayOpen ? (
-        <div className="board-scroll">
-          <TodayView
-            sections={todaySections}
-            projectsById={projectsById}
-            selectedId={selectedId}
-            focused={focusedIds.size > 0}
-            onSelect={setSelectedId}
-            onOpen={setTaskDialogId}
+        )}
+
+        {!showEmptyState && (
+          <CommandDeck
+            projects={sortedProjects}
+            statsByProject={statsByProject}
+            focusedIds={focusedIds}
+            open={prefs.deckOpen}
+            onToggleOpen={() => toggle('deckOpen')}
+            onToggleFocus={toggleFocus}
+            onClearFocus={clearFocus}
+            onEditProject={setProjectDialogId}
+            onNewProject={() => setProjectDialogId(null)}
           />
-        </div>
-      ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={collisionDetection}
-          onDragStart={onDragStart}
-          onDragOver={onDragOver}
-          onDragEnd={onDragEnd}
-          onDragCancel={onDragCancel}
-        >
+        )}
+
+        {showEmptyState ? (
+          <div className="board-empty">
+            <div className="board-empty-inner">
+              <h2>Defcon 1</h2>
+              <p>{t.empty.intro}</p>
+              <div className="empty-actions">
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={() => setProjectDialogId(null)}
+                >
+                  {t.empty.firstProject}
+                </button>
+                <button type="button" className="btn" onClick={loadDemo}>
+                  {t.empty.loadDemo}
+                </button>
+              </div>
+              <span className="micro">
+                {t.empty.storage(mode === 'server' ? t.topbar.mode.server : t.topbar.mode.local)}
+              </span>
+            </div>
+          </div>
+        ) : todayOpen ? (
           <div className="board-scroll">
-            <Board
-              projects={visibleProjects}
-              statsByProject={statsByProject}
-              cells={cells}
-              cellTotals={cellTotals}
-              columnTotals={columnTotals}
-              prefs={prefs}
-              laneSort={prefs.laneSort}
-              collapsedIds={collapsedIds}
-              focusedIds={focusedIds}
+            <TodayView
+              sections={todaySections}
+              projectsById={projectsById}
               selectedId={selectedId}
-              quickAddCell={quickAddCell}
-              allCollapsed={allCollapsed}
-              onToggleAllCollapsed={toggleAllCollapsed}
-              onToggleCollapsed={toggleCollapsed}
-              onSolo={soloFocus}
-              onEditProject={setProjectDialogId}
-              onMoveProject={moveProject}
-              onQuickAddOpen={setQuickAddCell}
-              onQuickAdd={addTask}
-              onSelectTask={setSelectedId}
-              onOpenTask={setTaskDialogId}
+              focused={focusedIds.size > 0}
+              onSelect={setSelectedId}
+              onOpen={setTaskDialogId}
             />
           </div>
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={collisionDetection}
+            onDragStart={onDragStart}
+            onDragOver={onDragOver}
+            onDragEnd={onDragEnd}
+            onDragCancel={onDragCancel}
+          >
+            <div className="board-scroll">
+              <Board
+                projects={visibleProjects}
+                statsByProject={statsByProject}
+                cells={cells}
+                cellTotals={cellTotals}
+                columnTotals={columnTotals}
+                prefs={prefs}
+                laneSort={prefs.laneSort}
+                collapsedIds={collapsedIds}
+                focusedIds={focusedIds}
+                selectedId={selectedId}
+                quickAddCell={quickAddCell}
+                allCollapsed={allCollapsed}
+                onToggleAllCollapsed={toggleAllCollapsed}
+                onToggleCollapsed={toggleCollapsed}
+                onSolo={soloFocus}
+                onEditProject={setProjectDialogId}
+                onMoveProject={moveProject}
+                onQuickAddOpen={setQuickAddCell}
+                onQuickAdd={addTask}
+                onSelectTask={setSelectedId}
+                onOpenTask={setTaskDialogId}
+              />
+            </div>
 
-          <DragOverlay className="drag-overlay" dropAnimation={null}>
-            {activeTask ? <TaskCardPreview task={activeTask} /> : null}
-          </DragOverlay>
-        </DndContext>
-      )}
+            <DragOverlay className="drag-overlay" dropAnimation={null}>
+              {activeTask ? <TaskCardPreview task={activeTask} /> : null}
+            </DragOverlay>
+          </DndContext>
+        )}
 
-      {dialogTask && (
-        <TaskDialog
-          task={dialogTask}
-          projects={sortedProjects}
-          onSave={updateTask}
-          onDelete={deleteTask}
-          onClose={() => setTaskDialogId(null)}
+        {dialogTask && (
+          <TaskDialog
+            task={dialogTask}
+            projects={sortedProjects}
+            onSave={updateTask}
+            onDelete={deleteTask}
+            onClose={() => setTaskDialogId(null)}
+          />
+        )}
+
+        {projectDialogId !== undefined && (
+          <ProjectDialog
+            project={dialogProject}
+            taskCount={dialogProject ? (statsByProject.get(dialogProject.id)?.total ?? 0) : 0}
+            onSave={saveProject}
+            onDelete={deleteProject}
+            onClose={() => setProjectDialogId(undefined)}
+          />
+        )}
+
+        {helpOpen && (
+          <HelpDialog mode={mode} onClose={() => setHelpOpen(false)} onLoadDemo={loadDemo} />
+        )}
+
+        <input
+          ref={importRef}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            event.target.value = ''
+            if (file) void onImportFile(file)
+          }}
         />
-      )}
-
-      {projectDialogId !== undefined && (
-        <ProjectDialog
-          project={dialogProject}
-          taskCount={
-            dialogProject
-              ? (statsByProject.get(dialogProject.id)?.total ?? 0)
-              : 0
-          }
-          onSave={saveProject}
-          onDelete={deleteProject}
-          onClose={() => setProjectDialogId(undefined)}
-        />
-      )}
-
-      {helpOpen && (
-        <HelpDialog mode={mode} onClose={() => setHelpOpen(false)} onLoadDemo={loadDemo} />
-      )}
-
-      <input
-        ref={importRef}
-        type="file"
-        accept="application/json,.json"
-        hidden
-        onChange={(event) => {
-          const file = event.target.files?.[0]
-          event.target.value = ''
-          if (file) void onImportFile(file)
-        }}
-      />
-    </div>
+      </div>
+    </I18nProvider>
   )
 }

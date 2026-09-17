@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 import assert from 'node:assert/strict'
-import { afterEach, beforeEach, describe, it } from 'vitest'
+import { afterEach, beforeEach, describe, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import App from '../App'
+import { PREFS_KEY } from '../constants'
+import { playAlarm } from '../lib/alarm'
 import { createDemoData } from '../lib/board'
 import { daysUntil, formatCountdown, formatDate } from '../lib/date'
 
@@ -14,8 +16,22 @@ import { daysUntil, formatCountdown, formatDate } from '../lib/date'
  * Drag & drop itself needs a real pointer and is verified in the browser.
  */
 
+// jsdom cannot decode audio, so playback is stubbed: what matters here is when
+// the app decides to sound the alarm. The file lookup is covered in logic.test.ts.
+vi.mock('../lib/alarm', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/alarm')>()),
+  playAlarm: vi.fn(),
+  preloadAlarm: vi.fn(),
+}))
+
+const alarm = vi.mocked(playAlarm)
+
 beforeEach(() => {
+  alarm.mockClear()
   localStorage.clear()
+  // jsdom reports en-US, which would hand the app its English dictionary. Pin
+  // the language so the assertions below can stay in one language.
+  localStorage.setItem(PREFS_KEY, JSON.stringify({ lang: 'de' }))
 })
 
 afterEach(() => {
@@ -36,6 +52,33 @@ function cellOf(card: HTMLElement): HTMLElement {
   const cell = card.closest('.cell')
   assert.ok(cell, 'Karte liegt in keiner Zelle')
   return cell as HTMLElement
+}
+
+/**
+ * The five cells of one swimlane. The board is one flat CSS grid, so a lane is
+ * its header followed by its cells — they are siblings, not children.
+ */
+function laneCells(projectName: string): HTMLElement[] {
+  const head = Array.from(document.querySelectorAll('.lane-head')).find(
+    (element) => element.querySelector('.lane-name')?.textContent === projectName,
+  )
+  assert.ok(head, `Keine Swimlane "${projectName}"`)
+  const cells: HTMLElement[] = []
+  let node = head.nextElementSibling
+  while (node && node.classList.contains('cell')) {
+    cells.push(node as HTMLElement)
+    node = node.nextElementSibling
+  }
+  return cells
+}
+
+function laneNames(): string[] {
+  return Array.from(document.querySelectorAll('.lane-name')).map((el) => el.textContent ?? '')
+}
+
+/** The card titles of one cell, top to bottom. */
+function cardTitles(cell: HTMLElement): string[] {
+  return Array.from(cell.querySelectorAll('.card-title')).map((el) => el.textContent ?? '')
 }
 
 function cardByTitle(title: string): HTMLElement {
@@ -69,7 +112,7 @@ describe('App', () => {
     await renderWithDemo()
 
     // The demo board is relative to today, so pin the offsets first.
-    const deadlines = createDemoData().projects.map((p) => p.deadline)
+    const deadlines = createDemoData('de').projects.map((p) => p.deadline)
     assert.deepEqual(
       deadlines.map((d) => daysUntil(d)),
       [21, 5, 60],
@@ -87,8 +130,7 @@ describe('App', () => {
 
   it('sorts swimlanes by deadline, most urgent first', async () => {
     await renderWithDemo()
-    const laneNames = Array.from(document.querySelectorAll('.lane-name')).map((el) => el.textContent)
-    assert.deepEqual(laneNames, ['Reporting Q4', 'Migration Cloud', 'Onboarding Tool'])
+    assert.deepEqual(laneNames(), ['Reporting Q4', 'Migration Cloud', 'Onboarding Tool'])
   })
 
   it('marks a card that has not moved for too long', async () => {
@@ -207,6 +249,63 @@ describe('App', () => {
     })
   })
 
+  it('lifts a task to the top of its column when it becomes a DEFCON 1', async () => {
+    const user = await renderWithDemo()
+
+    // Onboarding Tool's backlog holds one DEFCON 5 task; add a second one below it.
+    const backlog = () => laneCells('Onboarding Tool')[0]
+    await user.click(within(backlog()).getByTitle('Task hinzufügen'))
+    await user.type(await screen.findByLabelText('Neuer Task'), 'Nachtrag !5{Enter}')
+    await waitFor(() => {
+      assert.deepEqual(cardTitles(backlog()), ['Anforderungen sammeln', 'Nachtrag'])
+    })
+
+    // Raising its priority is enough — no manual reordering.
+    await user.click(cardByTitle('Nachtrag'))
+    fireEvent.keyDown(window, { key: '1', shiftKey: true })
+    await waitFor(() => {
+      assert.deepEqual(cardTitles(backlog()), ['Nachtrag', 'Anforderungen sammeln'])
+    })
+
+    // The hand order survives underneath: manual mode brings it back unchanged.
+    await user.click(within(document.querySelector('.topbar') as HTMLElement).getByTitle(/genau so/))
+    await waitFor(() => {
+      assert.deepEqual(cardTitles(backlog()), ['Anforderungen sammeln', 'Nachtrag'])
+    })
+  })
+
+  it('sounds the alarm when a task reaches DEFCON 1 — and only then', async () => {
+    const user = await renderWithDemo()
+
+    fireEvent.keyDown(window, { key: 'n' })
+    await user.type(await screen.findByLabelText('Neuer Task'), 'Ruhiger Task !3{Enter}')
+    await waitFor(() => cardByTitle('Ruhiger Task'))
+    assert.equal(alarm.mock.calls.length, 0, 'DEFCON 3 ist kein Alarm')
+
+    await user.type(screen.getByLabelText('Neuer Task'), 'Produktion steht !1{Enter}')
+    await waitFor(() => cardByTitle('Produktion steht'))
+    assert.equal(alarm.mock.calls.length, 1)
+
+    // Escalating an existing task is the same event.
+    await user.click(cardByTitle('Ruhiger Task'))
+    fireEvent.keyDown(window, { key: '1', shiftKey: true })
+    await waitFor(() => {
+      assert.equal(alarm.mock.calls.length, 2)
+    })
+
+    // Already at DEFCON 1: setting it again changes nothing, so it stays quiet.
+    fireEvent.keyDown(window, { key: '1', shiftKey: true })
+    assert.equal(alarm.mock.calls.length, 2)
+
+    // And the chip mutes it for good.
+    const topbar = document.querySelector('.topbar') as HTMLElement
+    await user.click(within(topbar).getByTitle(/Alarmton/))
+    fireEvent.keyDown(window, { key: 'n' })
+    await user.type(await screen.findByLabelText('Neuer Task'), 'Alles brennt !1{Enter}')
+    await waitFor(() => cardByTitle('Alles brennt'))
+    assert.equal(alarm.mock.calls.length, 2, 'stummgeschaltet, trotzdem gespielt')
+  })
+
   it('filters the board down to one project when a deck tile is clicked', async () => {
     const user = await renderWithDemo()
     assert.equal(document.querySelectorAll('.lane-head').length, 3)
@@ -276,5 +375,114 @@ describe('App', () => {
       assert.equal(screen.getAllByText('Audit 2027').length, 2)
     })
     assert.ok(screen.getAllByText('31.03.2027').length > 0)
+  })
+
+  it('records a project description and shows all of it in the deck', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    const text =
+      'Ablösung der Altanwendung inklusive Datenmigration, Schulung aller ' +
+      'Filialen und Abnahme durch die Revision. Läuft über drei Quartale.'
+
+    await user.click(await screen.findByRole('button', { name: 'Erstes Projekt anlegen' }))
+    await user.type(screen.getByLabelText('Projektname'), 'Kernbanken-Release')
+    fireEvent.change(screen.getByLabelText('Beschreibung'), { target: { value: text } })
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }))
+
+    const shown = await waitFor(() => {
+      const node = document.querySelector('.tile-desc')
+      assert.ok(node, 'Keine Beschreibung in der Projektübersicht')
+      return node as HTMLElement
+    })
+    // Every character of it, not a shortened version.
+    assert.equal(shown.textContent, text)
+
+    // And it comes back into the dialog for editing.
+    await user.dblClick(shown.closest('.tile') as HTMLElement)
+    const field = (await screen.findByLabelText('Beschreibung')) as HTMLTextAreaElement
+    assert.equal(field.value, text)
+  })
+
+  it('keeps a brand-new project visible while a task filter is active', async () => {
+    const user = await renderWithDemo()
+
+    // A project starts out without tasks — the exact case that used to vanish.
+    await user.click(screen.getByRole('button', { name: '+ Projekt' }))
+    await user.type(screen.getByLabelText('Projektname'), 'Audit 2027')
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }))
+    await waitFor(() => {
+      assert.ok(laneNames().includes('Audit 2027'))
+    })
+
+    const topbar = document.querySelector('.topbar') as HTMLElement
+    await user.click(within(topbar).getByTitle(/DEFCON 3/))
+
+    await waitFor(() => {
+      // Onboarding Tool has tasks, none of them DEFCON 3: filtered away, correctly.
+      assert.ok(!laneNames().includes('Onboarding Tool'))
+    })
+    // The empty project was never filtered — it must stay reachable.
+    assert.ok(laneNames().includes('Audit 2027'))
+
+    // And it must still accept its first task.
+    const backlog = laneCells('Audit 2027')[0]
+    await user.click(within(backlog).getByTitle('Task hinzufügen'))
+    // !3 keeps the new task inside the active filter, so the lane stays put.
+    await user.type(await screen.findByLabelText('Neuer Task'), 'Scope klären !3{Enter}')
+
+    await waitFor(() => {
+      assert.equal(within(laneCells('Audit 2027')[0]).getAllByText('Scope klären').length, 1)
+    })
+  })
+
+  it('shows every focused project, even one without tasks', async () => {
+    const user = await renderWithDemo()
+
+    await user.click(screen.getByRole('button', { name: '+ Projekt' }))
+    await user.type(screen.getByLabelText('Projektname'), 'Audit 2027')
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }))
+    await waitFor(() => {
+      assert.equal(document.querySelectorAll('.lane-head').length, 4)
+    })
+
+    for (const name of ['Reporting Q4', 'Audit 2027']) {
+      const tile = screen.getAllByText(name)[0].closest('.tile')
+      assert.ok(tile, name)
+      await user.click(tile as HTMLElement)
+    }
+
+    await waitFor(() => {
+      assert.deepEqual(laneNames().sort(), ['Audit 2027', 'Reporting Q4'])
+    })
+  })
+
+  it('switches the whole interface to English and back', async () => {
+    const user = await renderWithDemo()
+
+    await user.click(screen.getByRole('button', { name: 'EN' }))
+
+    await waitFor(() => {
+      assert.ok(screen.getByLabelText('Search tasks'))
+    })
+    assert.ok(screen.getByRole('button', { name: 'DE' }))
+    // Column names are the same in both languages on purpose.
+    assert.ok(screen.getByText('Backlog'))
+    assert.ok(screen.getByText('unsorted'))
+    // Project and task titles are data: they must not change.
+    assert.ok(screen.getByText('Terraform-Module refactoren'))
+    assert.equal(document.documentElement.lang, 'en')
+
+    await user.click(screen.getByRole('button', { name: 'DE' }))
+    await waitFor(() => {
+      assert.ok(screen.getByLabelText('Tasks durchsuchen'))
+    })
+    assert.equal(document.documentElement.lang, 'de')
+  })
+
+  it('starts in English for a browser that does not ask for German', async () => {
+    localStorage.clear()
+    render(<App />)
+    assert.ok(await screen.findByRole('button', { name: 'Create the first project' }))
   })
 })

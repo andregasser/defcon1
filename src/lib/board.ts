@@ -1,5 +1,16 @@
 import { DEFAULT_DEFCON, PROJECT_COLORS, STALE_AFTER_DAYS, STATUS_IDS } from '../constants'
-import type { BoardData, ChecklistItem, Defcon, LaneSort, Project, Status, Task } from '../types'
+import { getDict } from '../i18n'
+import type {
+  BoardData,
+  ChecklistItem,
+  Defcon,
+  Lang,
+  LaneSort,
+  Project,
+  Status,
+  Task,
+  TaskSort,
+} from '../types'
 import { daysSince, daysUntil, nowISO, todayISO } from './date'
 
 export function uid(prefix = 'id'): string {
@@ -29,10 +40,17 @@ export function parseCellId(id: string): { projectId: string; status: Status } |
 const byOrder = (a: Task, b: Task) => a.order - b.order
 
 /**
+ * Most urgent first, hand order within the same level. Nothing is renumbered:
+ * `order` stays the manual order underneath, so switching back to `manual`
+ * restores exactly the board the user had arranged.
+ */
+const byDefcon = (a: Task, b: Task) => a.defcon - b.defcon || a.order - b.order
+
+/**
  * Buckets every task into its cell once per render. Cheaper and far easier to
  * reason about than filtering the task list 50 times for a 10-project board.
  */
-export function groupByCell(tasks: Task[]): Map<string, Task[]> {
+export function groupByCell(tasks: Task[], sort: TaskSort = 'manual'): Map<string, Task[]> {
   const groups = new Map<string, Task[]>()
   for (const task of tasks) {
     const key = cellId(task.projectId, task.status)
@@ -40,7 +58,8 @@ export function groupByCell(tasks: Task[]): Map<string, Task[]> {
     if (bucket) bucket.push(task)
     else groups.set(key, [task])
   }
-  for (const bucket of groups.values()) bucket.sort(byOrder)
+  const compare = sort === 'defcon' ? byDefcon : byOrder
+  for (const bucket of groups.values()) bucket.sort(compare)
   return groups
 }
 
@@ -172,6 +191,7 @@ export function createProject(name: string, order: number, colorSeed = order): P
   return {
     id: uid('p'),
     name,
+    description: '',
     color: PROJECT_COLORS[colorSeed % PROJECT_COLORS.length],
     deadline: null,
     order,
@@ -289,67 +309,76 @@ export function reorderProject(projects: Project[], projectId: string, delta: nu
 
 /* --------------------------------------------------------------- demo data */
 
-export function createDemoData(): BoardData {
+/**
+ * A board to look at on the first run. Task titles follow the interface
+ * language; the project names are the same either way.
+ */
+export function createDemoData(lang: Lang): BoardData {
   const today = new Date()
   const inDays = (n: number) =>
     todayISO(new Date(today.getFullYear(), today.getMonth(), today.getDate() + n))
   /** Backdates `statusSince` so the demo board also shows the aging chips. */
   const daysAgo = (n: number) =>
     new Date(today.getFullYear(), today.getMonth(), today.getDate() - n, 9).toISOString()
+  const { tasks: titles, descriptions, steps: stepTexts } = getDict(lang).demo
 
-  /** `[status, title, defcon, due, days in that status, [step, erledigt][]]` */
+  /** `[status, title, defcon, due, days in that status, [step, done][]]` */
   const specs: Array<{
     name: string
+    description: string
     deadline: string | null
     tasks: Array<[Status, string, Defcon, string | null, number?, Array<[string, boolean]>?]>
   }> = [
     {
       name: 'Migration Cloud',
+      description: descriptions.cloud,
       deadline: inDays(21),
       tasks: [
-        ['doing', 'Terraform-Module refactoren', 2, inDays(2), 1],
-        ['blocked', 'Netzwerk-Freigabe Firewall', 1, inDays(-1), 6],
+        ['doing', titles.terraform, 2, inDays(2), 1],
+        ['blocked', titles.firewall, 1, inDays(-1), 6],
         [
           'todo',
-          'Runbook schreiben',
+          titles.runbook,
           4,
           inDays(9),
           0,
           [
-            ['Ablauf skizzieren', true],
-            ['Rollback beschreiben', false],
-            ['Review mit Ops', false],
+            [stepTexts.sketchFlow, true],
+            [stepTexts.describeRollback, false],
+            [stepTexts.reviewWithOps, false],
           ],
         ],
-        ['backlog', 'Kostenmodell prüfen', 5, null],
+        ['backlog', titles.costs, 5, null],
         [
           'done',
-          'Landing Zone aufgesetzt',
+          titles.landingZone,
           3,
           null,
           0,
           [
-            ['Accounts angelegt', true],
-            ['Guardrails aktiv', true],
+            [stepTexts.accountsCreated, true],
+            [stepTexts.guardrailsActive, true],
           ],
         ],
       ],
     },
     {
       name: 'Reporting Q4',
+      description: descriptions.reporting,
       deadline: inDays(5),
       tasks: [
-        ['doing', 'Kennzahlen abstimmen', 2, inDays(1), 4],
-        ['todo', 'Dashboard-Layout finalisieren', 3, inDays(3)],
-        ['done', 'Datenquellen inventarisiert', 4, null],
+        ['doing', titles.metrics, 2, inDays(1), 4],
+        ['todo', titles.dashboard, 3, inDays(3)],
+        ['done', titles.sources, 4, null],
       ],
     },
     {
       name: 'Onboarding Tool',
+      description: descriptions.onboarding,
       deadline: inDays(60),
       tasks: [
-        ['backlog', 'Anforderungen sammeln', 5, null],
-        ['todo', 'Prototyp skizzieren', 4, inDays(14)],
+        ['backlog', titles.requirements, 5, null],
+        ['todo', titles.prototype, 4, inDays(14)],
       ],
     },
   ]
@@ -359,6 +388,7 @@ export function createDemoData(): BoardData {
 
   specs.forEach((spec, index) => {
     const project = createProject(spec.name, index, index)
+    project.description = spec.description
     project.deadline = spec.deadline
     projects.push(project)
 

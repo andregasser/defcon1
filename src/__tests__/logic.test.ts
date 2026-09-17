@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { existsSync, readFileSync } from 'node:fs'
 import { describe, it } from 'vitest'
 
 import {
@@ -15,7 +16,20 @@ import {
   sortProjects,
   staleDays,
 } from '../lib/board'
-import { daysSince, daysUntil, formatCountdown, formatDate, parseISODate, todayISO } from '../lib/date'
+import { ALARM_TRACKS, alarmUrl, nextTrack, playAlarm, preloadAlarm } from '../lib/alarm'
+import { DEFCONS } from '../constants'
+import { de } from '../i18n/de'
+import { en } from '../i18n/en'
+import { detectLang, isLang, LANGS } from '../i18n/lang'
+import {
+  daysSince,
+  daysUntil,
+  formatCountdown,
+  formatDate,
+  formatDateShort,
+  parseISODate,
+  todayISO,
+} from '../lib/date'
 import { parseQuickAdd } from '../lib/quickAdd'
 import { normalizeData, parseBackup } from '../lib/storage'
 import type { TodaySection, TodaySectionId } from '../lib/today'
@@ -54,7 +68,7 @@ function aged(
 }
 
 function project(id: string, order: number, deadline: string | null = null): Project {
-  return { id, name: id, color: '#0a84ff', deadline, order }
+  return { id, name: id, description: '', color: '#0a84ff', deadline, order }
 }
 
 /** Ids of a cell, in stored order. */
@@ -90,6 +104,38 @@ describe('groupByCell', () => {
     const groups = groupByCell(tasks)
     assert.deepEqual(groups.get(cellId('p1', 'todo'))?.map((t) => t.id), ['a', 'b'])
     assert.deepEqual(groups.get(cellId('p1', 'done'))?.map((t) => t.id), ['c'])
+  })
+
+  it('puts the most urgent task on top in defcon mode', () => {
+    const tasks = [
+      task('calm', 'p1', 'todo', 0, 5),
+      task('normal', 'p1', 'todo', 1, 4),
+      task('now', 'p1', 'todo', 2, 1),
+    ]
+    const groups = groupByCell(tasks, 'defcon')
+    assert.deepEqual(groups.get(cellId('p1', 'todo'))?.map((t) => t.id), ['now', 'normal', 'calm'])
+  })
+
+  it('keeps the hand order within the same defcon level', () => {
+    const tasks = [
+      task('second', 'p1', 'todo', 1, 2),
+      task('first', 'p1', 'todo', 0, 2),
+      task('later', 'p1', 'todo', 2, 3),
+    ]
+    const groups = groupByCell(tasks, 'defcon')
+    assert.deepEqual(
+      groups.get(cellId('p1', 'todo'))?.map((t) => t.id),
+      ['first', 'second', 'later'],
+    )
+  })
+
+  it('leaves order untouched, so manual mode restores the hand order', () => {
+    const tasks = [task('calm', 'p1', 'todo', 0, 5), task('now', 'p1', 'todo', 1, 1)]
+    groupByCell(tasks, 'defcon')
+    assert.deepEqual(
+      groupByCell(tasks, 'manual').get(cellId('p1', 'todo'))?.map((t) => t.id),
+      ['calm', 'now'],
+    )
   })
 })
 
@@ -501,6 +547,12 @@ describe('date helpers', () => {
 
   it('formats Swiss style', () => {
     assert.equal(formatDate('2026-09-17'), '17.09.2026')
+    assert.equal(formatDateShort('2026-09-17'), '17.09.')
+  })
+
+  it('spells the month out in English so 09/20 can never be misread', () => {
+    assert.equal(formatDate('2026-09-17', 'en'), '17 Sep 2026')
+    assert.equal(formatDateShort('2026-09-17', 'en'), '17 Sep')
   })
 
   it('counts whole days in both directions', () => {
@@ -533,6 +585,237 @@ describe('date helpers', () => {
     assert.equal(formatCountdown(inDays(-3)), 'überfällig · 3 T')
     assert.equal(formatCountdown(null), '')
   })
+
+  it('describes the countdown in English', () => {
+    const now = new Date()
+    const inDays = (n: number) =>
+      todayISO(new Date(now.getFullYear(), now.getMonth(), now.getDate() + n))
+
+    assert.equal(formatCountdown(inDays(0), 'en'), 'today')
+    assert.equal(formatCountdown(inDays(1), 'en'), 'tomorrow')
+    assert.equal(formatCountdown(inDays(12), 'en'), 'in 12 d')
+    assert.equal(formatCountdown(inDays(70), 'en'), 'in 10 wk')
+    assert.equal(formatCountdown(inDays(300), 'en'), 'in 10 mo')
+    assert.equal(formatCountdown(inDays(-3), 'en'), 'overdue · 3 d')
+  })
+})
+
+/* ------------------------------------------------------------------- alarm */
+
+describe('the DEFCON 1 alarm', () => {
+  it('ships more than one MP3 under public/sounds', () => {
+    // MP3 throughout: it is the one format every browser decodes.
+    assert.ok(ALARM_TRACKS.length >= 2, 'the rotation needs at least two files')
+    for (const track of ALARM_TRACKS) {
+      assert.match(track, /^sounds\/defcon1-[a-z0-9-]+\.mp3$/)
+      assert.ok(
+        existsSync(new URL(`../../public/${track}`, import.meta.url)),
+        `${track} is missing from public/`,
+      )
+    }
+    assert.equal(new Set(ALARM_TRACKS).size, ALARM_TRACKS.length)
+  })
+
+  it('builds a URL that survives a non-root base', () => {
+    assert.equal(alarmUrl('sounds/a.mp3', '/'), '/sounds/a.mp3')
+    assert.equal(alarmUrl('sounds/a.mp3', '/defcon1/'), '/defcon1/sounds/a.mp3')
+    // A base without its trailing slash must not glue the path onto the folder.
+    assert.equal(alarmUrl('sounds/a.mp3', '/defcon1'), '/defcon1/sounds/a.mp3')
+  })
+
+  it('never plays the same track twice in a row', () => {
+    // The first alarm may pick anything …
+    assert.equal(nextTrack(-1, 3, () => 0), 0)
+    assert.equal(nextTrack(-1, 3, () => 0.99), 2)
+
+    // … afterwards the previous track is skipped, so the draw shifts past it.
+    assert.equal(nextTrack(0, 3, () => 0), 1)
+    assert.equal(nextTrack(0, 3, () => 0.99), 2)
+    assert.equal(nextTrack(1, 3, () => 0), 0)
+    assert.equal(nextTrack(1, 3, () => 0.99), 2)
+    assert.equal(nextTrack(2, 3, () => 0.99), 1)
+
+    // Two files therefore simply alternate, whatever the dice say.
+    assert.equal(nextTrack(0, 2, () => 0), 1)
+    assert.equal(nextTrack(0, 2, () => 0.99), 1)
+    assert.equal(nextTrack(1, 2, () => 0.99), 0)
+
+    // A single file always wins, and a real dice roll stays inside the list.
+    assert.equal(nextTrack(0, 1), 0)
+    for (let round = 0; round < 50; round += 1) {
+      const at = nextTrack(round % ALARM_TRACKS.length)
+      assert.ok(at >= 0 && at < ALARM_TRACKS.length)
+      assert.notEqual(at, round % ALARM_TRACKS.length)
+    }
+  })
+
+  it('stays quiet where there is no audio element at all', () => {
+    // Node has no `Audio`: calling this must not throw, it must do nothing.
+    assert.equal(typeof (globalThis as { Audio?: unknown }).Audio, 'undefined')
+    preloadAlarm()
+    playAlarm()
+  })
+})
+
+/* ------------------------------------------------------------ defcon scale */
+
+/** WCAG relative luminance of a `#rrggbb` colour. */
+function luminance(hex: string): number {
+  const channels = [1, 3, 5].map((at) => {
+    const value = parseInt(hex.slice(at, at + 2), 16) / 255
+    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+}
+
+function contrast(a: string, b: string): number {
+  const [dark, light] = [luminance(a), luminance(b)].sort((x, y) => x - y)
+  return (light + 0.05) / (dark + 0.05)
+}
+
+describe('the official DEFCON colours', () => {
+  it('runs red, orange, yellow, green, blue from 1 to 5', () => {
+    assert.deepEqual(
+      DEFCONS.map((meta) => [meta.level, meta.color]),
+      [
+        [1, '#ff1f1f'],
+        [2, '#ff8c00'],
+        [3, '#ffd400'],
+        [4, '#22b14c'],
+        [5, '#0057d8'],
+      ],
+    )
+  })
+
+  it('keeps the level readable on its own badge', () => {
+    // The badge paints the number in `ink` on `color`; 4.5:1 is the WCAG floor
+    // for small text, and this text is very small.
+    for (const meta of DEFCONS) {
+      const ratio = contrast(meta.color, meta.ink)
+      assert.ok(ratio >= 4.5, `DEFCON ${meta.level}: only ${ratio.toFixed(2)}:1`)
+    }
+  })
+})
+
+/* -------------------------------------------------------------------- i18n */
+
+/** Recursive shape of a dictionary: same keys, same kind of value everywhere. */
+function shape(value: unknown, path = ''): string[] {
+  if (typeof value === 'function') return [`${path}:fn/${(value as () => void).length}`]
+  if (Array.isArray(value)) return [`${path}:array/${value.length}`]
+  if (value && typeof value === 'object') {
+    return Object.keys(value)
+      .sort()
+      .flatMap((key) => shape((value as Record<string, unknown>)[key], `${path}.${key}`))
+  }
+  return [`${path}:${typeof value}`]
+}
+
+describe('dictionaries', () => {
+  it('cover exactly the same keys with the same kind of value', () => {
+    // The `Dict` type already guards the keys at compile time; this catches a
+    // string where the other language has a function, which types allow.
+    assert.deepEqual(shape(en), shape(de))
+  })
+
+  it('translate every entry', () => {
+    const flat = (dict: unknown): string[] =>
+      typeof dict === 'string'
+        ? [dict]
+        : Array.isArray(dict)
+          ? dict.flatMap(flat)
+          : dict && typeof dict === 'object'
+            ? Object.values(dict).flatMap(flat)
+            : []
+
+    // Deliberate exceptions: identical in both languages on purpose — loan
+    // words, file paths, column names, the language-agnostic date tokens and the
+    // empty label of the idle save state.
+    const shared = new Set([
+      '',
+      'Export',
+      'Import',
+      'OK',
+      'Defcon',
+      'Deadline',
+      'Status',
+      'DEFCON',
+      'In Progress',
+      '+ Task',
+      'Lanes',
+      'Tasks',
+      'Alarm',
+      'normal',
+      'data/board.json',
+      '@+3d',
+      '@20.09.',
+      '@2026-09-20',
+    ])
+    const german = new Set(flat(de).filter((value) => !shared.has(value)))
+    const untranslated = flat(en).filter((value) => german.has(value))
+    assert.deepEqual(untranslated, [])
+  })
+
+  it('accepts only known language codes', () => {
+    assert.deepEqual(LANGS, ['de', 'en'])
+    assert.ok(isLang('de'))
+    assert.ok(!isLang('fr'))
+    assert.ok(!isLang(undefined))
+  })
+
+  it('follows the browser languages, German only when asked for', () => {
+    assert.equal(detectLang(['de-CH', 'en-US']), 'de')
+    assert.equal(detectLang(['en-GB', 'de']), 'de')
+    assert.equal(detectLang(['fr-CH', 'it-CH']), 'en')
+    assert.equal(detectLang([]), 'en')
+    // Whatever the machine reports, the result has to be a language we have.
+    assert.ok(isLang(detectLang()))
+  })
+})
+
+/* --------------------------------------------------------------------- css */
+
+/** The declaration block of one top-level rule, looked up by exact selector. */
+function cssBlock(css: string, selector: string): string {
+  const start = css.indexOf(`\n${selector} {`)
+  assert.notEqual(start, -1, `the rule ${selector} is gone`)
+  return css.slice(start, css.indexOf('}', start))
+}
+
+describe('text on the board is never truncated', () => {
+  // Whether a project name, a description or a task title fits is decided in CSS
+  // alone, so this is the only place where the promise "you always see all of it"
+  // can be kept.
+  const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8')
+
+  for (const selector of ['.lane-name', '.tile-name', '.tile-desc', '.card-title']) {
+    it(`${selector} wraps instead of cutting off`, () => {
+      const block = cssBlock(css, selector)
+      assert.ok(!block.includes('text-overflow: ellipsis'), `${selector} truncates`)
+      assert.ok(!block.includes('white-space: nowrap'), `${selector} refuses to wrap`)
+      assert.ok(!block.includes('line-clamp'), `${selector} clamps the line count`)
+      assert.ok(block.includes('overflow-wrap: anywhere'), `${selector} cannot break a long word`)
+    })
+  }
+
+  it('lets a card keep its full height inside a capped cell', () => {
+    // The cell caps its height and lays its children out with flex, so they would
+    // shrink by default — and because the card sets `overflow: hidden` for its
+    // stripe, `min-height: auto` does not save it. A wrapped title lost its last
+    // line that way. Without this rule the bug is invisible until a cell fills up.
+    const cell = cssBlock(css, '.cell')
+    assert.ok(cell.includes('display: flex'), 'the cell is no longer a flex container')
+    const children = cssBlock(css, '.cell > *')
+    assert.match(children, /flex:\s*0 0 auto|flex-shrink:\s*0/)
+  })
+
+  it('has no density override that clamps a card title', () => {
+    // Compact density used to squeeze titles onto one line with an ellipsis.
+    // Any rule that mentions .card-title has to leave the wrapping alone.
+    for (const rule of css.matchAll(/[^\n}]*\.card-title[^{]*\{[^}]*\}/g)) {
+      assert.doesNotMatch(rule[0], /white-space:\s*nowrap|text-overflow:\s*ellipsis|line-clamp/)
+    }
+  })
 })
 
 /* ------------------------------------------------------------- normalisation */
@@ -545,7 +828,9 @@ describe('normalizeData', () => {
 
   it('fills in missing fields', () => {
     const result = normalizeData({ projects: [{ id: 'p1' }], tasks: [{ id: 't1', projectId: 'p1' }] })
-    assert.equal(result.projects[0].name, 'Ohne Namen')
+    assert.equal(result.projects[0].name, 'Untitled project')
+    // A board written before descriptions existed must still load.
+    assert.equal(result.projects[0].description, '')
     assert.equal(result.projects[0].deadline, null)
     assert.equal(result.tasks[0].status, 'backlog')
     assert.equal(result.tasks[0].defcon, 4)
@@ -648,7 +933,7 @@ describe('parseBackup', () => {
 
 describe('createDemoData', () => {
   it('produces a consistent board', () => {
-    const demo = createDemoData()
+    const demo = createDemoData('de')
     assert.equal(demo.projects.length, 3)
     assert.ok(demo.tasks.length > 5)
 
@@ -667,8 +952,19 @@ describe('createDemoData', () => {
     }
   })
 
+  it('describes every project in the interface language', () => {
+    for (const lang of LANGS) {
+      for (const project of createDemoData(lang).projects) {
+        assert.ok(project.description.length > 20, `${project.name} (${lang})`)
+      }
+    }
+    const [first] = createDemoData('de').projects
+    const [firstEn] = createDemoData('en').projects
+    assert.notEqual(first.description, firstEn.description)
+  })
+
   it('survives a round-trip through normalizeData unchanged', () => {
-    const demo = createDemoData()
+    const demo = createDemoData('en')
     assert.deepEqual(normalizeData(demo), demo)
   })
 })

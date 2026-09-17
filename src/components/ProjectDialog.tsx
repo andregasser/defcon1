@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { PROJECT_COLORS } from '../constants'
+import { useT } from '../i18n'
 import { todayISO } from '../lib/date'
 import type { Project } from '../types'
 import { Dialog } from './Dialog'
@@ -9,7 +10,12 @@ interface Props {
   project: Project | null
   /** Number of tasks in the project, shown before deleting. */
   taskCount: number
-  onSave: (values: { name: string; deadline: string | null; color: string }) => void
+  onSave: (values: {
+    name: string
+    description: string
+    deadline: string | null
+    color: string
+  }) => void
   onDelete: () => void
   onClose: () => void
 }
@@ -20,7 +26,9 @@ function shiftedToday(days: number): string {
 }
 
 export function ProjectDialog({ project, taskCount, onSave, onDelete, onClose }: Props) {
+  const t = useT()
   const [name, setName] = useState(project?.name ?? '')
+  const [description, setDescription] = useState(project?.description ?? '')
   const [deadline, setDeadline] = useState(project?.deadline ?? '')
   const [color, setColor] = useState(project?.color ?? PROJECT_COLORS[0])
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -28,21 +36,26 @@ export function ProjectDialog({ project, taskCount, onSave, onDelete, onClose }:
   const submit = () => {
     const trimmed = name.trim()
     if (trimmed === '') return
-    onSave({ name: trimmed, deadline: deadline === '' ? null : deadline, color })
+    onSave({
+      name: trimmed,
+      description: description.trim(),
+      deadline: deadline === '' ? null : deadline,
+      color,
+    })
     onClose()
   }
 
   return (
     <Dialog
-      title={project ? 'Projekt bearbeiten' : 'Neues Projekt'}
+      title={project ? t.projectDialog.titleEdit : t.projectDialog.titleNew}
       onClose={onClose}
       footer={
         <>
           <button type="button" className="btn primary" onClick={submit}>
-            {project ? 'Speichern' : 'Anlegen'}
+            {project ? t.actions.save : t.actions.create}
           </button>
           <button type="button" className="btn" onClick={onClose}>
-            Abbrechen
+            {t.actions.cancel}
           </button>
           {project && (
             <>
@@ -56,7 +69,9 @@ export function ProjectDialog({ project, taskCount, onSave, onDelete, onClose }:
                     onClose()
                   }}
                 >
-                  {taskCount > 0 ? `${taskCount} Tasks mitlöschen?` : 'Wirklich löschen?'}
+                  {taskCount > 0
+                    ? t.projectDialog.confirmWithTasks(taskCount)
+                    : t.projectDialog.confirmEmpty}
                 </button>
               ) : (
                 <button
@@ -64,7 +79,7 @@ export function ProjectDialog({ project, taskCount, onSave, onDelete, onClose }:
                   className="btn danger"
                   onClick={() => setConfirmDelete(true)}
                 >
-                  Löschen
+                  {t.actions.delete}
                 </button>
               )}
             </>
@@ -74,12 +89,12 @@ export function ProjectDialog({ project, taskCount, onSave, onDelete, onClose }:
     >
       <div className="dialog-body">
         <div className="field">
-          <label htmlFor="project-name">Projektname</label>
+          <label htmlFor="project-name">{t.projectDialog.nameLabel}</label>
           <input
             id="project-name"
             type="text"
             value={name}
-            placeholder="z. B. Migration Cloud"
+            placeholder={t.projectDialog.namePlaceholder}
             onChange={(event) => setName(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
@@ -91,7 +106,24 @@ export function ProjectDialog({ project, taskCount, onSave, onDelete, onClose }:
         </div>
 
         <div className="field">
-          <label htmlFor="project-deadline">Deadline</label>
+          <label htmlFor="project-description">{t.projectDialog.descriptionLabel}</label>
+          <textarea
+            id="project-description"
+            value={description}
+            placeholder={t.projectDialog.descriptionPlaceholder}
+            onChange={(event) => setDescription(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault()
+                submit()
+              }
+            }}
+          />
+          <span className="micro">{t.projectDialog.descriptionHint}</span>
+        </div>
+
+        <div className="field">
+          <label htmlFor="project-deadline">{t.projectDialog.deadlineLabel}</label>
           <input
             id="project-deadline"
             type="date"
@@ -100,22 +132,22 @@ export function ProjectDialog({ project, taskCount, onSave, onDelete, onClose }:
           />
           <div className="date-quick">
             <button type="button" className="btn sm" onClick={() => setDeadline(shiftedToday(7))}>
-              +1 Woche
+              {t.projectDialog.plusWeek}
             </button>
             <button type="button" className="btn sm" onClick={() => setDeadline(shiftedToday(30))}>
-              +1 Monat
+              {t.projectDialog.plusMonth}
             </button>
             <button type="button" className="btn sm" onClick={() => setDeadline(shiftedToday(90))}>
-              +1 Quartal
+              {t.projectDialog.plusQuarter}
             </button>
             <button type="button" className="btn sm" onClick={() => setDeadline('')}>
-              leeren
+              {t.actions.clearDate}
             </button>
           </div>
         </div>
 
         <div className="field">
-          <label>Farbe</label>
+          <label>{t.projectDialog.colorLabel}</label>
           <div className="swatches">
             {PROJECT_COLORS.map((value) => (
               <button
@@ -124,7 +156,7 @@ export function ProjectDialog({ project, taskCount, onSave, onDelete, onClose }:
                 className="swatch"
                 style={{ background: value }}
                 aria-pressed={color === value}
-                aria-label={`Farbe ${value}`}
+                aria-label={t.projectDialog.colorSwatch(value)}
                 onClick={() => setColor(value)}
               />
             ))}
