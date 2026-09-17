@@ -14,6 +14,7 @@ import {
   reorderProject,
   sortProjects,
 } from '../lib/board'
+import { ALARM_SECONDS, alarmPulses, playAlarm } from '../lib/alarm'
 import { de } from '../i18n/de'
 import { en } from '../i18n/en'
 import { detectLang, isLang, LANGS } from '../i18n/lang'
@@ -83,6 +84,38 @@ describe('groupByCell', () => {
     const groups = groupByCell(tasks)
     assert.deepEqual(groups.get(cellId('p1', 'todo'))?.map((t) => t.id), ['a', 'b'])
     assert.deepEqual(groups.get(cellId('p1', 'done'))?.map((t) => t.id), ['c'])
+  })
+
+  it('puts the most urgent task on top in defcon mode', () => {
+    const tasks = [
+      task('calm', 'p1', 'todo', 0, 5),
+      task('normal', 'p1', 'todo', 1, 4),
+      task('now', 'p1', 'todo', 2, 1),
+    ]
+    const groups = groupByCell(tasks, 'defcon')
+    assert.deepEqual(groups.get(cellId('p1', 'todo'))?.map((t) => t.id), ['now', 'normal', 'calm'])
+  })
+
+  it('keeps the hand order within the same defcon level', () => {
+    const tasks = [
+      task('second', 'p1', 'todo', 1, 2),
+      task('first', 'p1', 'todo', 0, 2),
+      task('later', 'p1', 'todo', 2, 3),
+    ]
+    const groups = groupByCell(tasks, 'defcon')
+    assert.deepEqual(
+      groups.get(cellId('p1', 'todo'))?.map((t) => t.id),
+      ['first', 'second', 'later'],
+    )
+  })
+
+  it('leaves order untouched, so manual mode restores the hand order', () => {
+    const tasks = [task('calm', 'p1', 'todo', 0, 5), task('now', 'p1', 'todo', 1, 1)]
+    groupByCell(tasks, 'defcon')
+    assert.deepEqual(
+      groupByCell(tasks, 'manual').get(cellId('p1', 'todo'))?.map((t) => t.id),
+      ['calm', 'now'],
+    )
   })
 })
 
@@ -399,6 +432,37 @@ describe('date helpers', () => {
   })
 })
 
+/* ------------------------------------------------------------------- alarm */
+
+describe('the DEFCON 1 klaxon', () => {
+  it('blasts three rising horns without overlapping itself', () => {
+    const pulses = alarmPulses()
+    assert.equal(pulses.length, 3)
+    assert.equal(pulses[0].start, 0)
+    for (const pulse of pulses) {
+      assert.ok(pulse.to > pulse.from, 'a horn has to rise in pitch')
+      assert.ok(pulse.duration > 0)
+    }
+    for (let i = 1; i < pulses.length; i += 1) {
+      const previousEnd = pulses[i - 1].start + pulses[i - 1].duration
+      assert.ok(pulses[i].start > previousEnd, 'the horns have to be audibly separate')
+    }
+    assert.equal(ALARM_SECONDS, pulses[2].start + pulses[2].duration)
+  })
+
+  it('stays short enough to interrupt nobody twice', () => {
+    // Long enough to be unmistakable, short enough that nobody reaches for the
+    // mute switch — anything past two seconds is a nuisance, not a signal.
+    assert.ok(ALARM_SECONDS > 0.5 && ALARM_SECONDS < 2)
+  })
+
+  it('stays quiet where there is no Web Audio at all', () => {
+    // jsdom has no AudioContext: calling it must not throw, it must do nothing.
+    assert.equal(typeof (globalThis as { AudioContext?: unknown }).AudioContext, 'undefined')
+    playAlarm()
+  })
+})
+
 /* -------------------------------------------------------------------- i18n */
 
 /** Recursive shape of a dictionary: same keys, same kind of value everywhere. */
@@ -445,6 +509,8 @@ describe('dictionaries', () => {
       'In Progress',
       '+ Task',
       'Lanes',
+      'Tasks',
+      'Alarm',
       'normal',
       'data/board.json',
       '@+3d',

@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import assert from 'node:assert/strict'
-import { afterEach, beforeEach, describe, it } from 'vitest'
+import { afterEach, beforeEach, describe, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import App from '../App'
 import { PREFS_KEY } from '../constants'
+import { playAlarm } from '../lib/alarm'
 import { createDemoData } from '../lib/board'
 import { daysUntil, formatCountdown, formatDate } from '../lib/date'
 
@@ -15,7 +16,17 @@ import { daysUntil, formatCountdown, formatDate } from '../lib/date'
  * Drag & drop itself needs a real pointer and is verified in the browser.
  */
 
+// jsdom has no Web Audio, so the klaxon is stubbed: what matters here is when
+// the app decides to sound it. The tone itself is covered in logic.test.ts.
+vi.mock('../lib/alarm', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/alarm')>()),
+  playAlarm: vi.fn(),
+}))
+
+const alarm = vi.mocked(playAlarm)
+
 beforeEach(() => {
+  alarm.mockClear()
   localStorage.clear()
   // jsdom reports en-US, which would hand the app its English dictionary. Pin
   // the language so the assertions below can stay in one language.
@@ -62,6 +73,11 @@ function laneCells(projectName: string): HTMLElement[] {
 
 function laneNames(): string[] {
   return Array.from(document.querySelectorAll('.lane-name')).map((el) => el.textContent ?? '')
+}
+
+/** The card titles of one cell, top to bottom. */
+function cardTitles(cell: HTMLElement): string[] {
+  return Array.from(cell.querySelectorAll('.card-title')).map((el) => el.textContent ?? '')
 }
 
 function cardByTitle(title: string): HTMLElement {
@@ -159,6 +175,63 @@ describe('App', () => {
       const card = cardByTitle('Runbook schreiben')
       assert.ok(within(card).getByTitle(/DEFCON 1/))
     })
+  })
+
+  it('lifts a task to the top of its column when it becomes a DEFCON 1', async () => {
+    const user = await renderWithDemo()
+
+    // Onboarding Tool's backlog holds one DEFCON 5 task; add a second one below it.
+    const backlog = () => laneCells('Onboarding Tool')[0]
+    await user.click(within(backlog()).getByTitle('Task hinzufügen'))
+    await user.type(await screen.findByLabelText('Neuer Task'), 'Nachtrag !5{Enter}')
+    await waitFor(() => {
+      assert.deepEqual(cardTitles(backlog()), ['Anforderungen sammeln', 'Nachtrag'])
+    })
+
+    // Raising its priority is enough — no manual reordering.
+    await user.click(cardByTitle('Nachtrag'))
+    fireEvent.keyDown(window, { key: '1', shiftKey: true })
+    await waitFor(() => {
+      assert.deepEqual(cardTitles(backlog()), ['Nachtrag', 'Anforderungen sammeln'])
+    })
+
+    // The hand order survives underneath: manual mode brings it back unchanged.
+    await user.click(within(document.querySelector('.topbar') as HTMLElement).getByTitle(/genau so/))
+    await waitFor(() => {
+      assert.deepEqual(cardTitles(backlog()), ['Anforderungen sammeln', 'Nachtrag'])
+    })
+  })
+
+  it('sounds the klaxon when a task reaches DEFCON 1 — and only then', async () => {
+    const user = await renderWithDemo()
+
+    fireEvent.keyDown(window, { key: 'n' })
+    await user.type(await screen.findByLabelText('Neuer Task'), 'Ruhiger Task !3{Enter}')
+    await waitFor(() => cardByTitle('Ruhiger Task'))
+    assert.equal(alarm.mock.calls.length, 0, 'DEFCON 3 ist kein Alarm')
+
+    await user.type(screen.getByLabelText('Neuer Task'), 'Produktion steht !1{Enter}')
+    await waitFor(() => cardByTitle('Produktion steht'))
+    assert.equal(alarm.mock.calls.length, 1)
+
+    // Escalating an existing task is the same event.
+    await user.click(cardByTitle('Ruhiger Task'))
+    fireEvent.keyDown(window, { key: '1', shiftKey: true })
+    await waitFor(() => {
+      assert.equal(alarm.mock.calls.length, 2)
+    })
+
+    // Already at DEFCON 1: setting it again changes nothing, so it stays quiet.
+    fireEvent.keyDown(window, { key: '1', shiftKey: true })
+    assert.equal(alarm.mock.calls.length, 2)
+
+    // And the chip mutes it for good.
+    const topbar = document.querySelector('.topbar') as HTMLElement
+    await user.click(within(topbar).getByTitle(/Klaxon/))
+    fireEvent.keyDown(window, { key: 'n' })
+    await user.type(await screen.findByLabelText('Neuer Task'), 'Alles brennt !1{Enter}')
+    await waitFor(() => cardByTitle('Alles brennt'))
+    assert.equal(alarm.mock.calls.length, 2, 'stummgeschaltet, trotzdem gespielt')
   })
 
   it('filters the board down to one project when a deck tile is clicked', async () => {

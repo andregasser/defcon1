@@ -2,10 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { loadPrefs, savePrefs } from '../lib/storage'
 import type { Prefs } from '../types'
 
+/** Every pref that is a plain on/off switch — the ones `toggle` accepts. */
+export type BoolPref = { [K in keyof Prefs]: Prefs[K] extends boolean ? K : never }[keyof Prefs]
+
 export interface PrefsStore {
   prefs: Prefs
   set: <K extends keyof Prefs>(key: K, value: Prefs[K]) => void
-  toggle: (key: 'hideDone' | 'hideEmptyLanes' | 'deckOpen') => void
+  toggle: (key: BoolPref) => void
   /** Collapse state of a single swimlane. */
   toggleCollapsed: (projectId: string) => void
   setAllCollapsed: (projectIds: string[], collapsed: boolean) => void
@@ -27,7 +30,7 @@ export function usePrefs(): PrefsStore {
     setPrefs((current) => (current[key] === value ? current : { ...current, [key]: value }))
   }, [])
 
-  const toggle = useCallback((key: 'hideDone' | 'hideEmptyLanes' | 'deckOpen') => {
+  const toggle = useCallback((key: BoolPref) => {
     setPrefs((current) => ({ ...current, [key]: !current[key] }))
   }, [])
 

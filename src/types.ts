@@ -42,6 +42,12 @@ export type Density = 'compact' | 'comfort'
 export type LaneSort = 'manual' | 'deadline'
 
 /**
+ * Order of the cards inside one cell. `defcon` keeps the most urgent task on
+ * top by itself; `manual` is pure hand order, exactly as dropped.
+ */
+export type TaskSort = 'manual' | 'defcon'
+
+/**
  * View-only settings. Deliberately kept in localStorage rather than in the
  * shared data file: how you look at the board is per-device, the tasks are not.
  */
@@ -49,8 +55,11 @@ export interface Prefs {
   lang: Lang
   density: Density
   laneSort: LaneSort
+  taskSort: TaskSort
   hideDone: boolean
   hideEmptyLanes: boolean
+  /** Sound the klaxon when a task reaches DEFCON 1. */
+  sound: boolean
   deckOpen: boolean
   collapsedProjects: string[]
   /** Empty = show every project. */

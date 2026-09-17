@@ -121,6 +121,11 @@ export function HelpDialog({ mode, onClose, onLoadDemo }: Props) {
         </div>
 
         <div className="field">
+          <label>{t.help.priorityLabel}</label>
+          <p style={{ margin: 0, color: 'var(--fg-1)', lineHeight: 1.55 }}>{t.help.priorityText}</p>
+        </div>
+
+        <div className="field">
           <label>{t.help.storageLabel}</label>
           <p style={{ margin: 0, color: 'var(--fg-1)', lineHeight: 1.55 }}>
             {mode === 'server' ? t.help.storageServer() : t.help.storageLocal()}

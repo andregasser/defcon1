@@ -25,7 +25,7 @@ the same time.
 | `npm start` | Build + server (the normal way) |
 | `npm run serve` | Server only, without rebuilding |
 | `npm run dev` | Vite dev server (`:5173`) + API server, with hot reload |
-| `npm test` | Vitest, 76 tests |
+| `npm test` | Vitest, 84 tests |
 | `npm run typecheck` | Check TypeScript strict |
 
 Environment variables: `DEFCON1_PORT` (default `7777`), `DEFCON1_HOST` (default
@@ -90,6 +90,18 @@ localStorage on purpose: they make sense per device, not globally.
 Every card carries a coloured stripe on the left. DEFCON 1 and 2 count as "hot"
 and are tallied in the lane and in the command deck.
 
+**Urgency sorts itself.** Inside every column the most urgent cards come first,
+so a task that becomes a DEFCON 1 rises to the top on its own — no manual
+reordering after a priority change. Cards on the same level keep the order you
+dragged them into. The `Tasks` switch in the header flips to `Manual`, where the
+column order is exactly how you drop the cards; the hand order is never
+overwritten, so switching back and forth is lossless.
+
+**And it is audible.** When a task reaches DEFCON 1 — created that way or
+escalated later — a klaxon sounds: three rising horns, synthesised in the
+browser, no audio file involved. The `Alarm` chip in the header switches it off
+per device.
+
 ## Ten projects in parallel
 
 That is what the UI is built for:
@@ -115,6 +127,7 @@ That is what the UI is built for:
 * **Narrow Done**: shrinks the Done column to its count and gives the width to
   the working columns.
 * **Hide empty lanes**: hides projects without matching tasks.
+* **Alarm**: klaxon on a fresh DEFCON 1, switchable per device.
 * **DEFCON filter and search**: shows only what is burning, across all projects.
 
 ## Usage
@@ -130,7 +143,7 @@ That is what the UI is built for:
 | Key | Effect |
 | --- | --- |
 | `1`–`5` | move the selected task to Backlog / Todo / In Progress / Blocked / Done |
-| `Shift`+`1`–`5` | set the DEFCON of the selected task |
+| `Shift`+`1`–`5` | set the DEFCON of the selected task (`Shift`+`1` sounds the alarm) |
 | `n` | new task — in the selected task's project, otherwise the first visible one |
 | `p` | new project |
 | `e` | open the selected task |

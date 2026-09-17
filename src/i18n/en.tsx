@@ -72,6 +72,8 @@ export const en: Dict = {
     hideDoneTitle: 'Shrink the Done column to its count and reclaim the width',
     hideEmpty: 'Hide empty lanes',
     hideEmptyTitle: 'Hide swimlanes without matching tasks',
+    alarm: 'Alarm',
+    alarmTitle: 'Sound the klaxon as soon as a task hits DEFCON 1',
     densityLabel: 'Density',
     comfort: 'Comfort',
     compact: 'Compact',
@@ -80,6 +82,12 @@ export const en: Dict = {
     sortDeadlineTitle: 'Most urgent deadline on top',
     sortManual: 'Manual',
     sortManualTitle: 'Your own order (with ↑ ↓ in the lane)',
+    tasksLabel: 'Tasks',
+    taskSortDefcon: 'DEFCON',
+    taskSortDefconTitle:
+      'Sorted by urgency inside every column: DEFCON 1 on top. Cards on the same level keep your hand order.',
+    taskSortManual: 'Manual',
+    taskSortManualTitle: 'Column order exactly as you drop the cards',
     langLabel: 'Language',
     langGroupLabel: 'Interface language',
     counters: (open: number, doing: number, blocked: number) =>
@@ -233,6 +241,12 @@ export const en: Dict = {
       bothLanguages:
         'German and English tokens always work, no matter which interface language is active.',
     },
+    priorityLabel: 'Priority',
+    priorityText:
+      'Inside every column the most urgent tasks come first — a DEFCON 1 rises to the top by ' +
+      'itself as soon as you change the priority. The "Tasks" switch in the header changes that ' +
+      'to "Manual", where the order is exactly how you drop the cards. A task reaching DEFCON 1 ' +
+      'also sounds a klaxon — switch it off with "Alarm".',
     storageLabel: 'Storage',
     storageServer: () => (
       <>

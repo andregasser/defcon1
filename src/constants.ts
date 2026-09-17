@@ -65,8 +65,14 @@ export const DEFAULT_PREFS: Prefs = {
   lang: 'de',
   density: 'comfort',
   laneSort: 'deadline',
+  // Urgency should not need housekeeping: a task that becomes a DEFCON 1 rises
+  // to the top of its cell on its own. Switch to 'manual' for hand order.
+  taskSort: 'defcon',
   hideDone: false,
   hideEmptyLanes: false,
+  // A DEFCON 1 is an interruption by definition, so it may make a noise. One
+  // click on the Alarm chip turns it off for good on this device.
+  sound: true,
   deckOpen: true,
   collapsedProjects: [],
   focusedProjects: [],

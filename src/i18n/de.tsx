@@ -80,6 +80,8 @@ export const de = {
     hideDoneTitle: 'Done-Spalte auf die Zählung schrumpfen und Platz gewinnen',
     hideEmpty: 'Leere Lanes aus',
     hideEmptyTitle: 'Swimlanes ohne passende Tasks ausblenden',
+    alarm: 'Alarm',
+    alarmTitle: 'Klaxon abspielen, sobald ein Task auf DEFCON 1 steht',
     densityLabel: 'Dichte',
     comfort: 'Komfort',
     compact: 'Kompakt',
@@ -88,6 +90,12 @@ export const de = {
     sortDeadlineTitle: 'Dringendste Deadline oben',
     sortManual: 'Manuell',
     sortManualTitle: 'Eigene Reihenfolge (mit ↑ ↓ in der Lane)',
+    tasksLabel: 'Tasks',
+    taskSortDefcon: 'DEFCON',
+    taskSortDefconTitle:
+      'Innerhalb jeder Spalte automatisch nach Priorität: DEFCON 1 zuoberst. Gleiche Stufe behält die Reihenfolge von Hand.',
+    taskSortManual: 'Manuell',
+    taskSortManualTitle: 'Reihenfolge in der Spalte genau so, wie du die Karten hinziehst',
     langLabel: 'Sprache',
     langGroupLabel: 'Sprache der Oberfläche',
     counters: (open: number, doing: number, blocked: number) =>
@@ -241,6 +249,12 @@ export const de = {
       absoluteTokens: ['@20.09.', '@2026-09-20'],
       bothLanguages: 'Deutsche und englische Kürzel funktionieren immer, unabhängig von der Sprache der Oberfläche.',
     },
+    priorityLabel: 'Priorität',
+    priorityText:
+      'Innerhalb jeder Spalte stehen die dringendsten Tasks zuoberst — ein DEFCON 1 rutscht ' +
+      'nach einer Prioritätsänderung von selbst nach oben. Der Schalter «Tasks» in der Kopfzeile ' +
+      'stellt auf «Manuell» um, dann gilt genau die Reihenfolge, in der du die Karten hinziehst. ' +
+      'Erreicht ein Task DEFCON 1, ertönt zusätzlich ein Klaxon — abschalten mit «Alarm».',
     storageLabel: 'Speicherort',
     storageServer: () => (
       <>

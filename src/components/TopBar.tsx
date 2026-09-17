@@ -1,6 +1,15 @@
 import { DEFCON_BY_LEVEL, DEFCON_LEVELS } from '../constants'
 import { langCode, LANGS, langName, useT } from '../i18n'
-import type { Defcon, Density, Lang, LaneSort, Prefs, SaveState, StorageMode } from '../types'
+import type {
+  Defcon,
+  Density,
+  Lang,
+  LaneSort,
+  Prefs,
+  SaveState,
+  StorageMode,
+  TaskSort,
+} from '../types'
 
 interface Props {
   query: string
@@ -11,9 +20,11 @@ interface Props {
   prefs: Prefs
   onDensity: (value: Density) => void
   onLaneSort: (value: LaneSort) => void
+  onTaskSort: (value: TaskSort) => void
   onLang: (value: Lang) => void
   onToggleHideDone: () => void
   onToggleHideEmpty: () => void
+  onToggleSound: () => void
   mode: StorageMode
   saveState: SaveState
   /** Lowest (= most urgent) DEFCON level among all open tasks. */
@@ -35,9 +46,11 @@ export function TopBar({
   prefs,
   onDensity,
   onLaneSort,
+  onTaskSort,
   onLang,
   onToggleHideDone,
   onToggleHideEmpty,
+  onToggleSound,
   mode,
   saveState,
   alertLevel,
@@ -168,6 +181,15 @@ export function TopBar({
         >
           {t.topbar.hideEmpty}
         </button>
+        <button
+          type="button"
+          className="chip"
+          aria-pressed={prefs.sound}
+          onClick={onToggleSound}
+          title={t.topbar.alarmTitle}
+        >
+          {t.topbar.alarm}
+        </button>
 
         <span className="divider" />
 
@@ -206,6 +228,26 @@ export function TopBar({
             title={t.topbar.sortManualTitle}
           >
             {t.topbar.sortManual}
+          </button>
+        </div>
+
+        <span className="micro">{t.topbar.tasksLabel}</span>
+        <div className="seg" role="group" aria-label={t.topbar.tasksLabel}>
+          <button
+            type="button"
+            aria-pressed={prefs.taskSort === 'defcon'}
+            onClick={() => onTaskSort('defcon')}
+            title={t.topbar.taskSortDefconTitle}
+          >
+            {t.topbar.taskSortDefcon}
+          </button>
+          <button
+            type="button"
+            aria-pressed={prefs.taskSort === 'manual'}
+            onClick={() => onTaskSort('manual')}
+            title={t.topbar.taskSortManualTitle}
+          >
+            {t.topbar.taskSortManual}
           </button>
         </div>
 

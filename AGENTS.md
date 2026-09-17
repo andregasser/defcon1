@@ -24,7 +24,7 @@ npm install
 | Command | Purpose |
 | --- | --- |
 | `npm run dev` | Vite (`:5173`) + API server together, hot reload — use this while coding |
-| `npm test` | Vitest once (76 tests) |
+| `npm test` | Vitest once (84 tests) |
 | `npm run test:watch` | Vitest in watch mode |
 | `npm run typecheck` | `tsc -b --noEmit`, strict |
 | `npm run build` | `tsc -b && vite build` into `dist/` |
@@ -50,6 +50,7 @@ src/components/       Board, Cell, TaskCard, LaneHeader, CommandDeck, TopBar, di
 src/hooks/useBoard.ts data + server sync + fallback + notices
 src/hooks/usePrefs.ts per-device view settings
 src/i18n/             de.tsx, en.tsx dictionaries, index.tsx context, lang.ts detection
+src/lib/alarm.ts      the DEFCON 1 klaxon, synthesised via Web Audio
 src/lib/board.ts      pure board logic: cell ids, moves, stats, sorting, demo data
 src/lib/date.ts       ISO parsing, language-aware formatting, countdowns
 src/lib/quickAdd.ts   the `!2 @tomorrow` mini syntax
@@ -129,7 +130,25 @@ nice-to-have.
   `navigator.languages` on first load and falls back to English. It takes an
   optional `tags` argument purely so tests can be deterministic.
 
-## 6. Ten lanes in parallel
+## 6. Priority: sorting and the klaxon
+
+* Cards inside a cell are ordered by `prefs.taskSort` (`'defcon'` by default,
+  `'manual'` for pure hand order). `groupByCell(tasks, sort)` does it, and
+  `defcon` mode sorts by `a.defcon - b.defcon || a.order - b.order`.
+* **`order` is never renumbered for sorting.** It stays the hand order
+  underneath, so switching back to `manual` restores exactly the board the user
+  arranged. Never "fix up" `order` to match a DEFCON sort.
+* A task reaching DEFCON 1 sounds the klaxon (`playAlarm()` from
+  `src/lib/alarm.ts`) — on creation with `!1` and on escalation, never twice for
+  a task that is already at 1, and never when `prefs.sound` is off.
+* Call it from the event handler, **not** from inside a `board.update()`
+  callback: state updaters may run twice and would double the sound.
+* `alarm.ts` degrades to silence with no `AudioContext` (jsdom, old browsers) and
+  keeps one shared context for the whole session. The pulse pattern is pure
+  (`alarmPulses()`) so it can be tested; `app.test.tsx` mocks `playAlarm` and
+  asserts only *when* it fires.
+
+## 7. Ten lanes in parallel
 
 The UI is designed for ~10 simultaneous projects. Keep it that way when you touch
 the board: sticky column heads and lane rail, capped cell height with internal
@@ -157,7 +176,7 @@ Visibility rules for lanes, in order (see `visibleProjects` in `App.tsx`):
    task to. This was a real bug; do not regress it.
 4. Otherwise the project is hidden while a task filter is active.
 
-## 7. Style
+## 8. Style
 
 * TypeScript strict, including `noUnusedLocals` and `verbatimModuleSyntax` —
   type-only imports need `import type`.
@@ -173,7 +192,7 @@ Visibility rules for lanes, in order (see `visibleProjects` in `App.tsx`):
   `role="group"` on controls, `title` on icon-only buttons, keyboard access for
   anything reachable by mouse.
 
-## 8. Testing
+## 9. Testing
 
 * `src/__tests__/logic.test.ts` — node environment, `node:assert/strict`, covers
   `lib/` and the dictionaries. Fast; keep it that way.
@@ -184,7 +203,7 @@ Visibility rules for lanes, in order (see `visibleProjects` in `App.tsx`):
 * Every bug fix gets a regression test in the same commit.
 * Drag & drop itself is not simulated — test the pure move functions instead.
 
-## 9. Git
+## 10. Git
 
 * **Conventional Commits**, lowercase imperative, no trailing period:
   `feat(i18n): add english dictionary`, `fix(board): keep empty lanes reachable`.
@@ -193,7 +212,7 @@ Visibility rules for lanes, in order (see `visibleProjects` in `App.tsx`):
   branch and open a PR.
 * `dist/`, `data/` and `node_modules/` stay untracked.
 
-## 10. Before you report back
+## 11. Before you report back
 
 - [ ] `npm test` green
 - [ ] `npm run build` green (type-check included)
@@ -201,4 +220,3 @@ Visibility rules for lanes, in order (see `visibleProjects` in `App.tsx`):
 - [ ] New/changed data fields handled in `normalizeData()`
 - [ ] Regression test for every fixed bug
 - [ ] Touched user-facing behaviour reflected in `README.md`
-</content>

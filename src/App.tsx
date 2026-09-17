@@ -40,6 +40,7 @@ import {
   sortProjects,
   type ProjectStats,
 } from './lib/board'
+import { playAlarm } from './lib/alarm'
 import { nowISO } from './lib/date'
 import { parseQuickAdd } from './lib/quickAdd'
 import { downloadBackup, EMPTY_BACKUP, parseBackup } from './lib/storage'
@@ -100,7 +101,7 @@ export default function App() {
     })
   }, [data.tasks, query, defconSet])
 
-  const cells = useMemo(() => groupByCell(matching), [matching])
+  const cells = useMemo(() => groupByCell(matching, prefs.taskSort), [matching, prefs.taskSort])
 
   const cellTotals = useMemo(() => {
     const totals = new Map<string, number>()
@@ -199,10 +200,23 @@ export default function App() {
 
   /* --------------------------------------------------------------- actions */
 
+  /**
+   * The klaxon for a task that just went to DEFCON 1. Called from the event
+   * handler rather than from inside a state updater — those may run twice.
+   */
+  const alarmIfCritical = useCallback(
+    (next: Defcon | null | undefined, previous: Defcon | null) => {
+      if (next !== 1 || previous === 1 || !prefs.sound) return
+      playAlarm()
+    },
+    [prefs.sound],
+  )
+
   const addTask = useCallback(
     (projectId: string, status: Status, text: string) => {
       const parsed = parseQuickAdd(text)
       if (parsed.title === '') return
+      alarmIfCritical(parsed.defcon, null)
       board.update((current) => ({
         ...current,
         tasks: [
@@ -214,11 +228,12 @@ export default function App() {
         ],
       }))
     },
-    [board],
+    [board, alarmIfCritical],
   )
 
   const updateTask = useCallback(
     (id: string, patch: Partial<Task>) => {
+      alarmIfCritical(patch.defcon, data.tasks.find((item) => item.id === id)?.defcon ?? null)
       board.update((current) => {
         const task = current.tasks.find((item) => item.id === id)
         if (!task) return current
@@ -249,7 +264,7 @@ export default function App() {
         }
       })
     },
-    [board],
+    [board, data.tasks, alarmIfCritical],
   )
 
   const deleteTask = useCallback(
@@ -581,9 +596,11 @@ export default function App() {
           prefs={prefs}
           onDensity={(value) => set('density', value)}
           onLaneSort={(value) => set('laneSort', value)}
+          onTaskSort={(value) => set('taskSort', value)}
           onLang={(value: Lang) => set('lang', value)}
           onToggleHideDone={() => toggle('hideDone')}
           onToggleHideEmpty={() => toggle('hideEmptyLanes')}
+          onToggleSound={() => toggle('sound')}
           mode={mode}
           saveState={board.saveState}
           alertLevel={globals.alert}

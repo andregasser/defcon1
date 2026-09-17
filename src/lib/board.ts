@@ -1,6 +1,15 @@
 import { DEFAULT_DEFCON, PROJECT_COLORS, STATUS_IDS } from '../constants'
 import { getDict } from '../i18n'
-import type { BoardData, Defcon, Lang, LaneSort, Project, Status, Task } from '../types'
+import type {
+  BoardData,
+  Defcon,
+  Lang,
+  LaneSort,
+  Project,
+  Status,
+  Task,
+  TaskSort,
+} from '../types'
 import { daysUntil, nowISO, todayISO } from './date'
 
 export function uid(prefix = 'id'): string {
@@ -30,10 +39,17 @@ export function parseCellId(id: string): { projectId: string; status: Status } |
 const byOrder = (a: Task, b: Task) => a.order - b.order
 
 /**
+ * Most urgent first, hand order within the same level. Nothing is renumbered:
+ * `order` stays the manual order underneath, so switching back to `manual`
+ * restores exactly the board the user had arranged.
+ */
+const byDefcon = (a: Task, b: Task) => a.defcon - b.defcon || a.order - b.order
+
+/**
  * Buckets every task into its cell once per render. Cheaper and far easier to
  * reason about than filtering the task list 50 times for a 10-project board.
  */
-export function groupByCell(tasks: Task[]): Map<string, Task[]> {
+export function groupByCell(tasks: Task[], sort: TaskSort = 'manual'): Map<string, Task[]> {
   const groups = new Map<string, Task[]>()
   for (const task of tasks) {
     const key = cellId(task.projectId, task.status)
@@ -41,7 +57,8 @@ export function groupByCell(tasks: Task[]): Map<string, Task[]> {
     if (bucket) bucket.push(task)
     else groups.set(key, [task])
   }
-  for (const bucket of groups.values()) bucket.sort(byOrder)
+  const compare = sort === 'defcon' ? byDefcon : byOrder
+  for (const bucket of groups.values()) bucket.sort(compare)
   return groups
 }
 
