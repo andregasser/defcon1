@@ -179,6 +179,9 @@ every browser talks to it.
 * **By hand** — `Export` writes a JSON file, `Import` reads it back. It is one
   process and one file, so you are free to copy, version, or sync
   `data/board.json` yourself.
+* **Somewhere else** — `DEFCON1_DATA_DIR` moves the file out of the checkout
+  entirely, which is worth doing; see
+  [Keeping your board out of the checkout](#keeping-your-board-out-of-the-checkout).
 
 View settings (density, sort order, collapsed lanes, focus) deliberately stay in
 localStorage — how you *look* at the board is per-device; the tasks are not.
@@ -189,7 +192,7 @@ localStorage — how you *look* at the board is per-device; the tasks are not.
 | --- | --- | --- |
 | `DEFCON1_PORT` | `7777` | HTTP port |
 | `DEFCON1_HOST` | `127.0.0.1` | bind address |
-| `DEFCON1_DATA_DIR` | `./data` | where `board.json` and backups live |
+| `DEFCON1_DATA_DIR` | `./data` | where `board.json` and `backups/` live — a relative path resolves against the **working directory**, not the repo |
 
 To reach the board from a tablet or a second machine on the same LAN:
 
@@ -200,6 +203,33 @@ DEFCON1_HOST=0.0.0.0 npm start
 > [!WARNING]
 > There is **no authentication**. Only bind beyond loopback on a network you
 > trust.
+
+### Keeping your board out of the checkout
+
+The default `./data` is resolved against the directory you start the server from,
+so *where* you start it decides *which* board you get. Two checkouts mean two
+boards — and a git worktree you later remove takes its `data/` along with it: the
+directory is gitignored, and removing a worktree deletes ignored files together
+with everything else.
+
+Point the variable at an absolute path outside every checkout and the board stops
+depending on your current directory:
+
+```bash
+# ~/.zshrc
+export DEFCON1_DATA_DIR="$HOME/.defcon1/data"
+```
+
+The directory, the file and `backups/` are created on demand, so moving an
+existing board is a plain copy. Turning the in-repo path into a symlink keeps it
+working as well — then you land on the same file whether or not the variable is
+set:
+
+```bash
+mkdir -p "$HOME/.defcon1/data"
+cp -R data/. "$HOME/.defcon1/data/"
+rm -rf data && ln -s "$HOME/.defcon1/data" data
+```
 
 ## Development
 
@@ -219,7 +249,7 @@ src/components/     Board, Cell, TaskCard, LaneHeader, CommandDeck, TodayView, d
 src/hooks/          useBoard (data + sync), usePrefs (view state)
 src/lib/            board (pure logic), date, quickAdd, storage, today
 src/__tests__/      logic and UI tests
-data/board.json     your data
+data/board.json     your data (or $DEFCON1_DATA_DIR/board.json)
 ```
 
 **Stack:** React 19, TypeScript strict, Vite 7, [`@dnd-kit`](https://dndkit.com)
