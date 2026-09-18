@@ -33,6 +33,19 @@ server, one `board.json`, and any browser you feel like opening.
 
 ## Quickstart
 
+<details>
+<summary><strong>Watch the board in action — 18 seconds</strong></summary>
+
+![Animated walkthrough: create a task with a due date, raise its DEFCON priority, drag it into In Progress, then focus its project.](docs/images/walkthrough.gif)
+
+Quick-add a task → set its priority → drag it into In Progress → focus a project.
+The walkthrough uses real demo screenshots, with captions and highlights.
+
+</details>
+
+Prefer a still image? [View the board screenshot](docs/images/hero.png), or
+[try the interactive demo](https://andregasser.github.io/defcon1/).
+
 Want to explore first? The [interactive demo](https://andregasser.github.io/defcon1/)
 opens with an example board. You can edit tasks, drag cards, change priorities,
 and switch between English and German. Changes stay in that browser's local
