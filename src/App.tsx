@@ -17,6 +17,7 @@ import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 
 import { Board } from './components/Board'
 import { CommandDeck } from './components/CommandDeck'
+import { DemoBanner } from './components/DemoBanner'
 import { HelpDialog } from './components/HelpDialog'
 import { ProjectDialog } from './components/ProjectDialog'
 import { TaskCardPreview } from './components/TaskCard'
@@ -60,10 +61,10 @@ const collisionDetection: CollisionDetection = (args) => {
 }
 
 export default function App() {
-  const board = useBoard()
-  const { data, mode } = board
   const { prefs, set, toggle, toggleCollapsed, setAllCollapsed, toggleFocus, soloFocus, clearFocus } =
     usePrefs()
+  const board = useBoard(prefs.lang)
+  const { data, mode } = board
 
   // App sits above the I18nProvider it mounts, so it reads the dictionary itself.
   const t = getDict(prefs.lang)
@@ -395,7 +396,17 @@ export default function App() {
     if (data.projects.length > 0 && !window.confirm(t.confirm.loadDemo)) return
     board.replaceAll(createDemoData(prefs.lang))
     setHelpOpen(false)
-  }, [board, data.projects.length, prefs.lang, t])
+    if (mode === 'demo') {
+      setQuery('')
+      setDefconFilter([])
+      setSelectedId(null)
+      setQuickAddCell(null)
+      setTodayOpen(false)
+      clearFocus()
+      setAllCollapsed([], false)
+      set('hideEmptyLanes', false)
+    }
+  }, [board, data.projects.length, prefs.lang, t, mode, clearFocus, setAllCollapsed, set])
 
   /* ------------------------------------------------------------ drag & drop */
 
@@ -627,6 +638,7 @@ export default function App() {
   return (
     <I18nProvider lang={prefs.lang}>
       <div className="app" data-density={prefs.density}>
+        {mode === 'demo' && <DemoBanner onReset={loadDemo} />}
         <TopBar
           query={query}
           onQuery={setQuery}

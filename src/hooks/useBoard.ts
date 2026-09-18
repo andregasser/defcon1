@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { BoardData, BoardNotice, SaveState, StorageMode } from '../types'
+import type { BoardData, BoardNotice, Lang, SaveState, StorageMode } from '../types'
+import { createDemoData } from '../lib/board'
+import { isBrowserDemo } from '../lib/runtime'
 import {
   fetchState,
   loadLocalData,
@@ -36,7 +38,9 @@ export interface BoardStore {
  * opened without the server. Concurrent edits from a second browser are caught
  * by the rev counter and pulled in instead of silently overwritten.
  */
-export function useBoard(): BoardStore {
+export function useBoard(lang: Lang = 'en'): BoardStore {
+  // Language changes affect future resets, not a connection already in flight.
+  const initialLang = useRef(lang)
   const [data, setData] = useState<BoardData>(EMPTY)
   const [mode, setMode] = useState<StorageMode>('loading')
   const [saveState, setSaveState] = useState<SaveState>('idle')
@@ -76,7 +80,11 @@ export function useBoard(): BoardStore {
     setSaveState('saving')
 
     if (modeRef.current !== 'server') {
-      saveLocalData(snapshot)
+      if (!saveLocalData(snapshot)) {
+        setSaveState('error')
+        setNotice({ kind: 'browserSaveFailed' })
+        return
+      }
       if (dataRef.current === snapshot) dirtyRef.current = false
       setSaveState('saved')
       return
@@ -151,6 +159,19 @@ export function useBoard(): BoardStore {
   useEffect(() => {
     if (initializedRef.current) return
     initializedRef.current = true
+
+    if (isBrowserDemo()) {
+      modeRef.current = 'demo'
+      setMode('demo')
+      const local = loadLocalData()
+      adopt(local ?? createDemoData(initialLang.current), 0)
+      if (!local) {
+        dirtyRef.current = true
+        void flush()
+      }
+      return
+    }
+
     let cancelled = false
 
     void (async () => {
@@ -165,7 +186,7 @@ export function useBoard(): BoardStore {
     return () => {
       cancelled = true
     }
-  }, [adopt, connect])
+  }, [adopt, connect, flush])
 
   /* --------------------------------------------------------- reconnect */
 

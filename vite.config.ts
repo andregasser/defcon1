@@ -5,11 +5,12 @@ import react from '@vitejs/plugin-react'
 // /api to it so the frontend talks to the same endpoints as in production.
 const API_PORT = Number(process.env.DEFCON1_API_PORT ?? 7777)
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  base: mode === 'demo' ? '/defcon1/' : '/',
   plugins: [react()],
   server: {
     port: 5173,
-    proxy: {
+    proxy: mode === 'demo' ? undefined : {
       '/api': {
         target: `http://127.0.0.1:${API_PORT}`,
         changeOrigin: true,
@@ -17,7 +18,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'dist',
+    outDir: mode === 'demo' ? 'dist-demo' : 'dist',
     sourcemap: false,
   },
   test: {
@@ -25,4 +26,4 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
   },
-})
+}))

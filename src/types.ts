@@ -84,7 +84,7 @@ export interface Prefs {
 }
 
 /** Where the board data lives. */
-export type StorageMode = 'loading' | 'server' | 'local'
+export type StorageMode = 'loading' | 'server' | 'local' | 'demo'
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -95,4 +95,5 @@ export type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 export type BoardNotice =
   | { kind: 'conflict' }
   | { kind: 'migrated' }
+  | { kind: 'browserSaveFailed' }
   | { kind: 'saveFailed'; detail: string }

@@ -49,11 +49,13 @@ Run the same checks as CI before opening a pull request:
 ```bash
 npm test
 npm run build
+npm run build:demo
 git diff --check
 ```
 
-The build includes strict TypeScript checking. GitHub Actions also runs tests
-and the build on Ubuntu with Node.js 24.
+Both builds include strict TypeScript checking. GitHub Actions also runs tests
+and both builds on Ubuntu with Node.js 24. The demo output in `dist-demo/` stays
+untracked, just like `dist/`.
 
 Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for
 commit messages and PR titles, in English, with an imperative subject under

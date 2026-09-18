@@ -14,6 +14,13 @@ export const de = {
   name: 'Deutsch',
   documentTitle: 'DEFCON 1 — Taskboard',
 
+  browserDemo: {
+    label: 'Interaktive Demo',
+    description: 'Probier das Board aus. Änderungen bleiben nur in diesem Browser. Mit Export kannst du sie sichern.',
+    reset: 'Demo zurücksetzen',
+    install: 'Lokal installieren',
+  },
+
   actions: {
     save: 'Speichern',
     create: 'Anlegen',
@@ -58,6 +65,7 @@ export const de = {
       loading: 'verbinde …',
       server: 'data/board.json',
       local: 'nur dieser Browser',
+      demo: 'Demo · dieser Browser',
     },
     saveSuffix: {
       idle: '',
@@ -66,6 +74,7 @@ export const de = {
       error: ' · Fehler',
     },
     syncTitle: {
+      demo: 'Demo-Daten bleiben in diesem Browser und werden nicht an einen Server gesendet.',
       server: 'Daten liegen in data/board.json — für alle Browser gleich',
       local:
         'Kein Server erreichbar: Daten liegen nur in diesem Browser. Starte "npm start" für browserübergreifende Speicherung.',
@@ -316,6 +325,7 @@ export const de = {
   },
 
   notice: {
+    browserSaveFailed: 'Der Browser konnte das Board nicht speichern. Sichere deine Änderungen mit Export, bevor du die Seite schliesst.',
     conflict:
       'Board wurde in einem anderen Browser geändert — die neuere Version ist jetzt geladen.',
     migrated: 'Board aus dem Browser-Speicher übernommen und in data/board.json gesichert.',

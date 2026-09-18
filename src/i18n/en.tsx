@@ -7,6 +7,13 @@ export const en: Dict = {
   name: 'English',
   documentTitle: 'DEFCON 1 — Task Board',
 
+  browserDemo: {
+    label: 'Interactive demo',
+    description: 'Try the board. Changes stay in this browser only. Use Export to keep a backup.',
+    reset: 'Reset demo',
+    install: 'Install locally',
+  },
+
   actions: {
     save: 'Save',
     create: 'Create',
@@ -50,6 +57,7 @@ export const en: Dict = {
       loading: 'connecting …',
       server: 'data/board.json',
       local: 'this browser only',
+      demo: 'Demo · this browser',
     },
     saveSuffix: {
       idle: '',
@@ -58,6 +66,7 @@ export const en: Dict = {
       error: ' · error',
     },
     syncTitle: {
+      demo: 'Demo data stays in this browser and is never sent to a server.',
       server: 'Data lives in data/board.json — the same board in every browser',
       local:
         'No server reachable: data lives in this browser only. Run "npm start" for cross-browser storage.',
@@ -304,6 +313,7 @@ export const en: Dict = {
   },
 
   notice: {
+    browserSaveFailed: 'The browser could not save the board. Use Export to keep your changes before closing this page.',
     conflict: 'The board changed in another browser — the newer version is loaded now.',
     migrated: 'Board taken over from this browser’s storage and saved to data/board.json.',
     saveFailed: (detail: string) => `Saving failed: ${detail}`,
