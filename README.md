@@ -7,6 +7,8 @@
 One swimlane per project · five status columns · priorities as DEFCON levels ·
 one JSON file on your disk.
 
+**[Try the browser demo](https://andregasser.github.io/defcon1/)** — no installation or account needed.
+
 [![React 19](https://img.shields.io/badge/React-19-0a84ff?logo=react&logoColor=white)](https://react.dev)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Vite 7](https://img.shields.io/badge/Vite-7-bf5af2?logo=vite&logoColor=white)](https://vite.dev)
@@ -30,6 +32,18 @@ And it stays yours. No account, no sync service, no telemetry — a tiny loopbac
 server, one `board.json`, and any browser you feel like opening.
 
 ## Quickstart
+
+Want to explore first? The [interactive demo](https://andregasser.github.io/defcon1/)
+opens with an example board. You can edit tasks, drag cards, change priorities,
+and switch between English and German. Changes stay in that browser's local
+storage; they are not sent to an API or shared with other visitors. Sound starts
+off and can be enabled with the **Alarm** switch.
+
+**Reset demo** replaces your demo board with fresh examples after confirmation
+and clears its search, task filters, focus, and collapsed lanes. **Export** saves
+a JSON backup that you can import into a local installation. Browser storage
+can be cleared or unavailable, so export anything you want to keep. The local
+installation below uses a server and one board file shared by your browsers.
 
 Install [Git](https://git-scm.com/downloads) and
 [Node.js 24 LTS](https://nodejs.org/en/download) (the latest 24.x release, including
@@ -265,8 +279,8 @@ rm -rf data && ln -s "$HOME/.defcon1/data" data
 
 ## Development
 
-GitHub Actions runs `npm ci`, `npm test`, and `npm run build` (including the
-TypeScript check) on Ubuntu with Node.js 24 LTS for every pull request and every
+GitHub Actions runs `npm ci`, `npm test`, `npm run build`, and `npm run build:demo`
+(including the TypeScript check) on Ubuntu with Node.js 24 LTS for every pull request and every
 push to `main`. The CI badge above shows the result for `main`. The workflow can
 also be started manually from the Actions tab.
 
@@ -278,6 +292,7 @@ also be started manually from the Actions tab.
 | `npm test` | Vitest — logic and UI suite |
 | `npm run typecheck` | TypeScript strict check |
 | `npm run build` | TypeScript check + production build |
+| `npm run build:demo` | TypeScript check + browser-only demo in `dist-demo/` |
 
 ```
 server/server.mjs   dependency-free HTTP server: /api/state + dist/
@@ -298,6 +313,22 @@ zero runtime dependencies.
 follows your browser; the `LANGUAGE` switch in the toolbar overrides that per
 device. The five column names and the DEFCON code words stay untranslated on
 purpose — they are the shared vocabulary of the board.
+
+### Publishing the browser demo
+
+GitHub Pages serves only the static demo build. In the repository's **Settings →
+Pages**, select **GitHub Actions** as the source. The **Deploy browser demo**
+workflow tests and builds `main`, then deploys `dist-demo/` after each push. It
+can also be run manually on `main`. Pull requests run both builds in CI without
+deploying. The workflow takes the base path from Pages, including when deployed
+from a fork; update the demo links in this README for your own repository.
+
+To preview locally, run `npm run build:demo` followed by
+`npx vite preview --mode demo`, then open the printed URL ending in `/defcon1/`.
+This mode never connects to the board server. Its board and view preferences use
+separate `defcon1.demo.*` storage keys, and the regular `npm start` build keeps
+its existing behavior and data. No server, board file, or backup directory is
+included in the Pages artifact.
 
 ## Contributing
 

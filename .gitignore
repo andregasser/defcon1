@@ -2,6 +2,7 @@
 # directory-only pattern would not match.
 node_modules
 dist/
+dist-demo/
 
 # Your board and its rolling backups — local data, not source. Never commit these.
 # No trailing slash for the same reason as above: once DEFCON1_DATA_DIR points

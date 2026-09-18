@@ -17,7 +17,7 @@ vi.mock('../lib/storage', () => ({
   fetchState: vi.fn(),
   putState: vi.fn(async () => ({ ok: true, rev: 1 })),
   loadLocalData: vi.fn(),
-  saveLocalData: vi.fn(),
+  saveLocalData: vi.fn(() => true),
 }))
 
 const remote = vi.mocked(fetchState)
@@ -52,6 +52,19 @@ afterEach(() => {
 })
 
 describe('useBoard and a server that comes and goes', () => {
+  it('still falls back locally when language changes during the initial connection', async () => {
+    let finishConnect: (value: null) => void = () => {}
+    remote.mockReturnValue(new Promise((resolve) => { finishConnect = resolve }))
+    local.mockReturnValue(board('Local work'))
+    const { result, rerender } = renderHook(({ lang }: { lang: 'de' | 'en' }) => useBoard(lang), {
+      initialProps: { lang: 'de' },
+    })
+    rerender({ lang: 'en' })
+    await act(async () => finishConnect(null))
+    assert.equal(result.current.mode, 'local')
+    assert.equal(result.current.data.projects[0].name, 'Local work')
+  })
+
   it('takes the server board when the server answers', async () => {
     remote.mockResolvedValue({ rev: 3, data: board('Vom Server'), updatedAt: null })
 

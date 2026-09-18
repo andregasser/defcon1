@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "tsc -b && vite build",
+    "build:demo": "tsc -b && vite build --mode demo",
     "start": "npm run build && node server/server.mjs",
     "serve": "node server/server.mjs",
     "test": "vitest run",

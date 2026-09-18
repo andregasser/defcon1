@@ -10,6 +10,7 @@ import { detectLang, isLang } from '../i18n/lang'
 import type { BoardData, ChecklistItem, Defcon, Prefs, Project, Status, Task } from '../types'
 import { uid } from './board'
 import { nowISO } from './date'
+import { isBrowserDemo } from './runtime'
 
 /**
  * Thrown by `parseBackup` for a file without any content. A sentinel rather
@@ -167,18 +168,20 @@ export async function putState(rev: number, data: BoardData): Promise<PutResult>
 
 export function loadLocalData(): BoardData | null {
   try {
-    const raw = localStorage.getItem(LOCAL_DATA_KEY)
+    const raw = localStorage.getItem(isBrowserDemo() ? 'defcon1.demo.data.v1' : LOCAL_DATA_KEY)
     return raw ? normalizeData(JSON.parse(raw)) : null
   } catch {
     return null
   }
 }
 
-export function saveLocalData(data: BoardData): void {
+export function saveLocalData(data: BoardData): boolean {
   try {
-    localStorage.setItem(LOCAL_DATA_KEY, JSON.stringify(data))
+    localStorage.setItem(isBrowserDemo() ? 'defcon1.demo.data.v1' : LOCAL_DATA_KEY, JSON.stringify(data))
+    return true
   } catch (error) {
     console.error('[defcon1] writing to localStorage failed', error)
+    return false
   }
 }
 
@@ -186,9 +189,9 @@ export function saveLocalData(data: BoardData): void {
 
 export function loadPrefs(): Prefs {
   // Without a stored choice the browser decides — a German browser gets German.
-  const fresh: Prefs = { ...DEFAULT_PREFS, lang: detectLang() }
+  const fresh: Prefs = { ...DEFAULT_PREFS, lang: detectLang(), sound: isBrowserDemo() ? false : DEFAULT_PREFS.sound }
   try {
-    const raw = localStorage.getItem(PREFS_KEY)
+    const raw = localStorage.getItem(isBrowserDemo() ? 'defcon1.demo.prefs.v1' : PREFS_KEY)
     if (!raw) return fresh
     const parsed = JSON.parse(raw) as Partial<Prefs>
     return {
@@ -205,7 +208,7 @@ export function loadPrefs(): Prefs {
 
 export function savePrefs(prefs: Prefs): void {
   try {
-    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs))
+    localStorage.setItem(isBrowserDemo() ? 'defcon1.demo.prefs.v1' : PREFS_KEY, JSON.stringify(prefs))
   } catch {
     // View preferences are not worth surfacing an error for.
   }

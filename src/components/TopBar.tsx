@@ -133,7 +133,7 @@ export function TopBar({
           className="sync"
           data-mode={mode}
           data-state={saveState}
-          title={mode === 'server' ? t.topbar.syncTitle.server : t.topbar.syncTitle.local}
+          title={t.topbar.syncTitle[mode === 'loading' ? 'local' : mode]}
         >
           <span className="sync-dot" />
           {t.topbar.mode[mode]}

@@ -129,6 +129,40 @@ select {
   color: var(--fg-2);
 }
 
+.demo-banner {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 24px;
+  padding: 10px 16px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line-2);
+}
+
+.demo-copy {
+  display: flex;
+  flex: 1 1 320px;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--fg-1);
+  overflow-wrap: anywhere;
+}
+
+.demo-copy strong {
+  color: var(--fg-0);
+}
+
+.demo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.demo-actions a {
+  text-decoration: none;
+}
+
 /* ----------------------------------------------------------------- topbar */
 
 .topbar {
