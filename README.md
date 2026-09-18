@@ -10,7 +10,7 @@ one JSON file on your disk.
 [![React 19](https://img.shields.io/badge/React-19-0a84ff?logo=react&logoColor=white)](https://react.dev)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Vite 7](https://img.shields.io/badge/Vite-7-bf5af2?logo=vite&logoColor=white)](https://vite.dev)
-[![Tests](https://img.shields.io/badge/tests-passing-32d74b)](#development)
+[![CI](https://github.com/andregasser/defcon1/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/andregasser/defcon1/actions/workflows/ci.yml)
 ![Server dependencies](https://img.shields.io/badge/server%20deps-0-ff9f0a)
 ![No cloud](https://img.shields.io/badge/cloud-none-ff453a)
 
@@ -232,6 +232,11 @@ rm -rf data && ln -s "$HOME/.defcon1/data" data
 ```
 
 ## Development
+
+GitHub Actions runs `npm ci`, `npm test`, and `npm run build` (including the
+TypeScript check) on Ubuntu with Node.js 24 LTS for every pull request and every
+push to `main`. The CI badge above shows the result for `main`. Once the workflow
+is on `main`, it can also be started manually from the Actions tab.
 
 | Command | Purpose |
 | --- | --- |
