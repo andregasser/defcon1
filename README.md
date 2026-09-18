@@ -31,13 +31,46 @@ server, one `board.json`, and any browser you feel like opening.
 
 ## Quickstart
 
+Install [Git](https://git-scm.com/downloads) and
+[Node.js 24 LTS](https://nodejs.org/en/download) (the latest 24.x release, including
+npm). Node.js 24 is the version used in CI. Then run:
+
 ```bash
-npm install
+git clone https://github.com/andregasser/defcon1.git
+cd defcon1
+npm ci
 npm start          # builds the frontend and starts the server
 ```
 
 Open **<http://127.0.0.1:7777>** — in Safari, Firefox, Chrome, or all three at
-the same time. They all see the same board.
+the same time. They all see the same board. Create your first project or load
+the example board from the welcome screen to try it out.
+
+Keep the terminal running while you use the board; **Ctrl+C** stops the server.
+Your tasks stay on disk and return the next time you run `npm start` in this
+directory. By default they live in `data/board.json` inside the checkout; see
+[Where your data lives](#where-your-data-lives) for backups and an external data
+directory.
+
+## Updating
+
+Finish your edits and use **Export** to save a copy of your board before updating.
+Then close the board tabs and stop the server with **Ctrl+C**.
+
+From your existing checkout on `main`, with any source changes committed or
+stashed, run:
+
+```bash
+git pull --ff-only
+npm ci
+npm start
+```
+
+This installs the locked dependencies and rebuilds the frontend. Keep using the
+same `DEFCON1_DATA_DIR` setting if you configured one, then reopen the board.
+Updating the existing checkout leaves its gitignored `data/` directory intact;
+replacing or deleting the checkout does not. If Git reports a conflict or a
+diverged branch, resolve it before continuing instead of forcing the update.
 
 ## Highlights
 
@@ -192,7 +225,7 @@ localStorage — how you *look* at the board is per-device; the tasks are not.
 | --- | --- | --- |
 | `DEFCON1_PORT` | `7777` | HTTP port |
 | `DEFCON1_HOST` | `127.0.0.1` | bind address |
-| `DEFCON1_DATA_DIR` | `./data` | where `board.json` and `backups/` live — a relative path resolves against the **working directory**, not the repo |
+| `DEFCON1_DATA_DIR` | `data/` inside the checkout | where `board.json` and `backups/` live — an explicitly configured relative path resolves against the server process's **working directory** |
 
 To reach the board from a tablet or a second machine on the same LAN:
 
@@ -206,11 +239,10 @@ DEFCON1_HOST=0.0.0.0 npm start
 
 ### Keeping your board out of the checkout
 
-The default `./data` is resolved against the directory you start the server from,
-so *where* you start it decides *which* board you get. Two checkouts mean two
-boards — and a git worktree you later remove takes its `data/` along with it: the
-directory is gitignored, and removing a worktree deletes ignored files together
-with everything else.
+The default `data/` directory lives inside the checkout that contains the server.
+Two checkouts therefore mean two boards — and a git worktree you later remove
+takes its `data/` along with it: the directory is gitignored, and removing a
+worktree deletes ignored files together with everything else.
 
 Point the variable at an absolute path outside every checkout and the board stops
 depending on your current directory:
@@ -235,8 +267,8 @@ rm -rf data && ln -s "$HOME/.defcon1/data" data
 
 GitHub Actions runs `npm ci`, `npm test`, and `npm run build` (including the
 TypeScript check) on Ubuntu with Node.js 24 LTS for every pull request and every
-push to `main`. The CI badge above shows the result for `main`. Once the workflow
-is on `main`, it can also be started manually from the Actions tab.
+push to `main`. The CI badge above shows the result for `main`. The workflow can
+also be started manually from the Actions tab.
 
 | Command | Purpose |
 | --- | --- |
@@ -245,6 +277,7 @@ is on `main`, it can also be started manually from the Actions tab.
 | `npm run dev` | Vite dev server (`:5173`) + API server, with hot reload |
 | `npm test` | Vitest — logic and UI suite |
 | `npm run typecheck` | TypeScript strict check |
+| `npm run build` | TypeScript check + production build |
 
 ```
 server/server.mjs   dependency-free HTTP server: /api/state + dist/
@@ -265,6 +298,13 @@ zero runtime dependencies.
 follows your browser; the `LANGUAGE` switch in the toolbar overrides that per
 device. The five column names and the DEFCON code words stay untranslated on
 purpose — they are the shared vocabulary of the board.
+
+## Contributing
+
+Bug reports, documentation improvements, and focused pull requests are welcome.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, checks, and the
+contribution workflow. [AGENTS.md](AGENTS.md) documents the detailed architecture
+and working agreements for humans and coding agents.
 
 ## License
 
