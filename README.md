@@ -260,3 +260,12 @@ zero runtime dependencies.
 follows your browser; the `LANGUAGE` switch in the toolbar overrides that per
 device. The five column names and the DEFCON code words stay untranslated on
 purpose — they are the shared vocabulary of the board.
+
+## License
+
+The project code and documentation are licensed under the [MIT License](LICENSE).
+
+The bundled alarm recordings in `public/sounds/` are third-party assets and are
+**not covered by the MIT License**. They remain subject to the Pixabay Content
+License; see [sound sources and licensing notes](public/sounds/README.md).
+Third-party dependencies retain their respective licenses.

@@ -1,6 +1,7 @@
 {
   "name": "defcon1",
   "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "description": "Local, auth-free task board for parallel projects",

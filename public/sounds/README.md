@@ -12,10 +12,24 @@ it keeps its edge instead of turning into background noise.
 | `defcon1-tannoy.mp3` | 4.8 s | `jonathanslattermusic-defcon-1-tannoy-with-effect-535004.mp3` |
 | `defcon1-warning.mp3` | 5.4 s | `tithuh-warning-545568.mp3` |
 
-Both are MPEG layer III, 44.1 kHz, stereo. The original file names point at a
-stock sound library (Pixabay IDs 535004 and 545568, by Jonathan Slatter and
-tithuh). Check the licence terms of those downloads before publishing the app
-anywhere beyond your own machine.
+Both are MPEG layer III, 44.1 kHz, stereo, downloaded from Pixabay:
+
+* [Defcon 1 Tannoy with effect](https://pixabay.com/sound-effects/film-special-effects-defcon-1-tannoy-with-effect-535004/)
+  by JonathanSlatterMusic (ID 535004).
+* [Warning!](https://pixabay.com/sound-effects/film-special-effects-warning-545568/)
+  by Tithuh (ID 545568).
+
+## License
+
+These recordings are **not covered by the project's MIT License**. They remain
+subject to the [Pixabay Content License](https://pixabay.com/service/terms/);
+Pixabay also provides a [license summary](https://pixabay.com/service/license-summary/).
+
+The summary permits free use and adaptation without mandatory attribution, but
+prohibits distributing content on a standalone basis. Whether distributing the
+unmodified MP3 files in a public source repository satisfies the full license
+terms has not yet been confirmed. These source credits do not grant additional
+rights or resolve that question.
 
 ## Changing the set
 
