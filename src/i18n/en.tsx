@@ -48,6 +48,7 @@ export const en: Dict = {
   },
 
   topbar: {
+    viewOptions: 'View & filters',
     alertTitle: (level: Defcon, code: string) =>
       `Most urgent open task: DEFCON ${level} — ${code}`,
     searchPlaceholder: 'Search tasks  /',
@@ -126,6 +127,7 @@ export const en: Dict = {
   },
 
   board: {
+    scrollHint: 'More columns: scroll sideways →',
     collapseAll: 'Collapse all swimlanes',
     expandAll: 'Expand all swimlanes',
     projectCount: (count: number) => `${count} ${count === 1 ? 'project' : 'projects'}`,
@@ -149,6 +151,7 @@ export const en: Dict = {
   },
 
   cell: {
+    addFirst: '+ Add task',
     narrowTitle: (shown: number, total: number) =>
       `${shown} of ${total} finished tasks match the filter — dropping still works`,
     hidden: (count: number) => `+ ${count} hidden`,
@@ -240,6 +243,8 @@ export const en: Dict = {
     mouse: 'Mouse',
     quickAdd: 'Quick add',
     keys: {
+      focus: 'Focus and select cards',
+      keyboardDrag: 'Start/finish moving; arrow keys move, Esc cancels',
       search: 'Focus the search field',
       today: 'Today across all projects: overdue, due today, in progress, DEFCON 1–2',
       newTask: 'New task in the first visible project (Backlog)',

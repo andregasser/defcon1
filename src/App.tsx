@@ -27,6 +27,7 @@ import { TopBar } from './components/TopBar'
 import { STATUS_IDS } from './constants'
 import { useBoard } from './hooks/useBoard'
 import { usePrefs } from './hooks/usePrefs'
+import { useNarrowLayout } from './hooks/useNarrowLayout'
 import { getDict, I18nProvider } from './i18n'
 import {
   appendIndex,
@@ -68,6 +69,9 @@ export default function App() {
 
   // App sits above the I18nProvider it mounts, so it reads the dictionary itself.
   const t = getDict(prefs.lang)
+
+  const narrow = useNarrowLayout()
+  const [mobileDeckOpen, setMobileDeckOpen] = useState(false)
 
   const [query, setQuery] = useState('')
   const [defconFilter, setDefconFilter] = useState<Defcon[]>([])
@@ -498,7 +502,7 @@ export default function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (dialogOpen) return
+      if (dialogOpen || activeId) return
       // Never hijack keys while the user is typing somewhere. The target is not
       // guaranteed to be an Element (it can be window or document).
       const target = event.target
@@ -510,7 +514,11 @@ export default function App() {
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return
 
-      const digit = /^[1-5]$/.test(event.key) ? (Number(event.key) as 1 | 2 | 3 | 4 | 5) : null
+      // Shift produces symbols on many layouts; code still identifies the key.
+      const digitKey = event.shiftKey && /^(Digit|Numpad)[1-5]$/.test(event.code)
+        ? event.code.slice(-1)
+        : event.key
+      const digit = /^[1-5]$/.test(digitKey) ? (Number(digitKey) as 1 | 2 | 3 | 4 | 5) : null
 
       if (digit && selectedTask) {
         event.preventDefault()
@@ -594,6 +602,7 @@ export default function App() {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [
+    activeId,
     dialogOpen,
     selectedTask,
     selectedId,
@@ -640,6 +649,7 @@ export default function App() {
       <div className="app" data-density={prefs.density}>
         {mode === 'demo' && <DemoBanner onReset={loadDemo} />}
         <TopBar
+          narrow={narrow}
           query={query}
           onQuery={setQuery}
           searchRef={searchRef}
@@ -683,13 +693,17 @@ export default function App() {
             projects={sortedProjects}
             statsByProject={statsByProject}
             focusedIds={focusedIds}
-            open={prefs.deckOpen}
-            onToggleOpen={() => toggle('deckOpen')}
+            open={narrow ? mobileDeckOpen : prefs.deckOpen}
+            onToggleOpen={() => narrow ? setMobileDeckOpen((open) => !open) : toggle('deckOpen')}
             onToggleFocus={toggleFocus}
             onClearFocus={clearFocus}
             onEditProject={setProjectDialogId}
             onNewProject={() => setProjectDialogId(null)}
           />
+        )}
+
+        {narrow && !showEmptyState && !todayOpen && (
+          <div className="board-scroll-hint">{t.board.scrollHint}</div>
         )}
 
         {showEmptyState ? (

@@ -56,6 +56,7 @@ export const de = {
   },
 
   topbar: {
+    viewOptions: 'Ansicht & Filter',
     alertTitle: (level: Defcon, code: string) =>
       `Dringendste offene Task: DEFCON ${level} — ${code}`,
     searchPlaceholder: 'Tasks durchsuchen  /',
@@ -135,6 +136,7 @@ export const de = {
   },
 
   board: {
+    scrollHint: 'Weitere Spalten: seitlich scrollen →',
     collapseAll: 'Alle Swimlanes einklappen',
     expandAll: 'Alle Swimlanes aufklappen',
     projectCount: (count: number) => `${count} ${count === 1 ? 'Projekt' : 'Projekte'}`,
@@ -158,6 +160,7 @@ export const de = {
   },
 
   cell: {
+    addFirst: '+ Aufgabe hinzufügen',
     narrowTitle: (shown: number, total: number) =>
       `${shown} von ${total} erledigten Tasks passen zum Filter — Ablegen weiterhin möglich`,
     hidden: (count: number) => `+ ${count} ausgeblendet`,
@@ -253,6 +256,8 @@ export const de = {
     mouse: 'Maus',
     quickAdd: 'Schnellerfassung',
     keys: {
+      focus: 'Karten fokussieren und auswählen',
+      keyboardDrag: 'Verschieben starten/beenden; Pfeiltasten bewegen, Esc bricht ab',
       search: 'Suche fokussieren',
       today: 'Heute-Ansicht über alle Projekte: überfällig, heute fällig, in Arbeit, DEFCON 1–2',
       newTask: 'Neuer Task im ersten sichtbaren Projekt (Backlog)',

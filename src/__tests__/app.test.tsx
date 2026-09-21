@@ -36,6 +36,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  vi.unstubAllGlobals()
 })
 
 /** Renders the app and loads the demo board so there is something to look at. */
@@ -93,6 +94,40 @@ describe('App', () => {
     assert.ok(await screen.findByRole('button', { name: 'Erstes Projekt anlegen' }))
     // Shown twice: as the sync badge and in the storage hint below it.
     assert.equal(screen.getAllByText(/nur dieser Browser/).length, 2)
+  })
+
+  it('offers a visible first-task action after creating a project', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: 'Erstes Projekt anlegen' }))
+    await user.type(screen.getByLabelText('Projektname'), 'New project')
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }))
+    const backlog = laneCells('New project')[0]
+    await user.click(within(backlog).getByRole('button', { name: '+ Aufgabe hinzufügen' }))
+    await user.type(screen.getByLabelText('Neuer Task'), 'First task{Enter}')
+    assert.ok(within(backlog).getByText('First task'))
+  })
+
+  it('keeps the board accessible on narrow screens and lets users open view options', async () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true, media: '(max-width: 600px)', onchange: null,
+      addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {},
+      dispatchEvent: () => true,
+    }))
+    const user = await renderWithDemo()
+    const deck = screen.getByRole('region', { name: 'Projektübersicht' })
+    assert.equal(within(deck).getByTitle('Übersicht aufklappen').getAttribute('aria-expanded'), 'false')
+    assert.equal(screen.queryByRole('group', { name: 'Dichte' }), null)
+    const options = screen.getByRole('button', { name: /Ansicht & Filter/ })
+    await user.click(options)
+    await user.click(screen.getByRole('button', { name: 'Kompakt' }))
+    await user.click(options)
+    assert.equal(screen.queryByRole('group', { name: 'Dichte' }), null)
+    assert.equal(document.querySelector('.app')?.getAttribute('data-density'), 'compact')
+    await user.click(within(deck).getByTitle('Übersicht aufklappen'))
+    assert.ok(within(deck).getByText('Migration Cloud'))
+    // A narrow-screen disclosure must not overwrite the desktop preference.
+    assert.equal(JSON.parse(localStorage.getItem(PREFS_KEY)!).deckOpen, true)
   })
 
   it('renders every status column and every project swimlane', async () => {
@@ -235,6 +270,63 @@ describe('App', () => {
     await waitFor(() => {
       assert.equal(cellOf(cardByTitle('Kostenmodell prüfen')).dataset.status, 'done')
     })
+  })
+
+  it('edits the card reached by Tab instead of the previously selected card', async () => {
+    const user = await renderWithDemo()
+    const backlog = laneCells('Onboarding Tool')[0]
+    await user.click(within(backlog).getByTitle('Task hinzufügen'))
+    await user.type(await screen.findByLabelText('Neuer Task'), 'Second task !5{Enter}{Escape}')
+    await user.click(cardByTitle('Anforderungen sammeln'))
+    await user.tab()
+    assert.ok(document.activeElement === cardByTitle('Second task'))
+    await user.keyboard('e')
+    assert.equal((screen.getByLabelText('Titel') as HTMLInputElement).value, 'Second task')
+    await user.keyboard('{Escape}')
+    assert.ok(document.activeElement === cardByTitle('Second task'))
+  })
+
+  it('opens a focused card with Enter without starting a drag', async () => {
+    const user = await renderWithDemo()
+    await user.click(cardByTitle('Kostenmodell prüfen'))
+    await user.keyboard('{Enter}')
+    assert.ok(screen.getByRole('dialog'))
+    assert.equal(document.querySelector('[data-dragging="true"]'), null)
+  })
+
+  it('focuses the project name and keeps focus inside the dialog until it closes', async () => {
+    const user = await renderWithDemo()
+    const trigger = screen.getByRole('button', { name: '+ Projekt' })
+    await user.click(trigger)
+    const dialog = screen.getByRole('dialog')
+    const name = within(dialog).getByLabelText('Projektname')
+    assert.ok(document.activeElement === name)
+    await user.type(name, 'Focus test')
+    assert.ok(document.activeElement === name, 'typing must not reset focus')
+    const close = within(dialog).getByTitle('Schliessen (Esc)')
+    await user.click(name)
+    await user.tab({ shift: true })
+    assert.ok(document.activeElement === close)
+    await user.tab({ shift: true })
+    assert.ok(document.activeElement === within(dialog).getByRole('button', { name: 'Abbrechen' }))
+    await user.tab()
+    assert.ok(document.activeElement === close)
+    await user.keyboard('{Escape}')
+    assert.equal(screen.queryByRole('dialog'), null)
+    assert.ok(document.activeElement === trigger)
+  })
+
+  it.each([
+    { key: '@', code: 'Digit2' },
+    { key: '"', code: 'Digit2' },
+    { key: '2', code: 'Numpad2' },
+  ])('sets priority using Shift with $key ($code)', async ({ key, code }) => {
+    const user = await renderWithDemo()
+    const card = cardByTitle('Runbook schreiben')
+    await user.click(card)
+    fireEvent.keyDown(window, { key, code, shiftKey: true })
+    assert.ok(within(card).getByTitle(/DEFCON 2/))
+    assert.equal(cellOf(card).dataset.status, 'todo')
   })
 
   it('changes the DEFCON level with shift + number', async () => {

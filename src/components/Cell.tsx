@@ -54,7 +54,7 @@ export function Cell({
   }
 
   return (
-    <div ref={setNodeRef} className="cell" data-status={status} data-over={isOver}>
+    <div ref={setNodeRef} className="cell" data-status={status} data-over={isOver} data-empty={tasks.length === 0 && hidden === 0}>
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
         {tasks.map((task) => (
           <TaskCard
@@ -87,7 +87,7 @@ export function Cell({
             onClick={() => onQuickAddOpen(id)}
             title={t.cell.addTitle}
           >
-            {t.cell.add}
+            {tasks.length === 0 && hidden === 0 ? t.cell.addFirst : t.cell.add}
           </button>
         </>
       )}
