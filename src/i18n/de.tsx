@@ -56,6 +56,8 @@ export const de = {
   },
 
   topbar: {
+    displayLabel: 'Darstellung & Ton',
+    dataLabel: 'Datensicherung',
     viewOptions: 'Ansicht & Filter',
     alertTitle: (level: Defcon, code: string) =>
       `Dringendste offene Task: DEFCON ${level} — ${code}`,

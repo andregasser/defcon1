@@ -649,7 +649,6 @@ export default function App() {
       <div className="app" data-density={prefs.density}>
         {mode === 'demo' && <DemoBanner onReset={loadDemo} />}
         <TopBar
-          narrow={narrow}
           query={query}
           onQuery={setQuery}
           searchRef={searchRef}
