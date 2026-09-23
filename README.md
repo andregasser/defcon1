@@ -209,14 +209,25 @@ Shift + number works with symbol-producing keyboard layouts and the numeric
 keypad. Dialogs focus the first input, keep keyboard focus inside while open,
 and return it to the opening control when that control is still present.
 
+### View controls and layout
+
+Search and Today stay directly accessible. On desktop and mobile, open
+**View & filters** for DEFCON filters, display and sound, density, sorting,
+language, and **Backups** (Export / Import). Active DEFCON filters are counted
+on the button. Press Escape inside the panel to close it and return focus to
+that button without clearing your filters.
+
+Project tiles put progress and deadlines before the description. Task titles
+and project text wrap fully in both densities, while busy cells scroll internally.
+Subtle panel and completion transitions respect the system's reduced-motion
+preference.
+
 ### Small screens
 
 At widths up to 600 px, the project overview starts collapsed independently of
-your saved desktop setting. Search and Today stay directly accessible; open
-**View & filters** for DEFCON filters, density, sorting, language and other view
-options. Active DEFCON filters are counted on that button. Both disclosures
-can be opened without changing the desktop overview preference. Scroll the
-board sideways to reach the remaining columns; the project rail stays visible.
+your saved desktop setting. You can open it without changing that preference.
+Scroll the board sideways to reach the remaining columns; the project rail
+stays visible.
 
 ### Quick-add syntax
 

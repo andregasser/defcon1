@@ -48,6 +48,8 @@ export const en: Dict = {
   },
 
   topbar: {
+    displayLabel: 'Display & sound',
+    dataLabel: 'Backups',
     viewOptions: 'View & filters',
     alertTitle: (level: Defcon, code: string) =>
       `Most urgent open task: DEFCON ${level} — ${code}`,

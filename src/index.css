@@ -1,35 +1,36 @@
 /* =========================================================================
    DEFCON 1 — command-deck styling.
-   Dark, hairline-bordered, monospace micro-labels. Built so that ten
+   Dark surfaces, clear typography, restrained signal colours. Built so that ten
    swimlanes still read at a glance: fixed column headers, a sticky lane
    rail on the left, capped cell height, and a density switch.
    ========================================================================= */
 
 :root {
-  --bg-0: #08090c;
-  --bg-1: #0d0f14;
-  --bg-2: #12151b;
-  --bg-3: #181c24;
-  --bg-4: #1f242e;
+  --bg-0: #0c121d;
+  --bg-1: #111a28;
+  --bg-2: #1b283b;
+  --bg-3: #23334a;
+  --bg-4: #2b3e58;
 
-  --line-1: #232833;
-  --line-2: #2f3644;
-  --line-3: #3d4655;
+  --line-1: #28364b;
+  --line-2: #3b4d66;
+  --line-3: #647d9e;
 
-  --fg-0: #e8ebf1;
-  --fg-1: #a7b0c0;
-  --fg-2: #6b7484;
+  --fg-0: #edf3fc;
+  --fg-1: #c5cfde;
+  --fg-2: #a0aec1;
 
   --red: #ff453a;
+  --danger-text: #ff8f87;
   --amber: #ff9f0a;
   --green: #32d74b;
-  --blue: #0a84ff;
+  --blue: #70adff;
   --yellow: #ffd60a;
 
-  --lane-w: 208px;
-  --col-min: 216px;
-  --colhead-h: 44px;
-  --radius: 6px;
+  --lane-w: 192px;
+  --col-min: 200px;
+  --colhead-h: 52px;
+  --radius: 9px;
 
   --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
   --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Inter, sans-serif;
@@ -41,15 +42,15 @@
 [data-density='comfort'] {
   --cell-max: 348px;
   --cell-min: 60px;
-  --card-py: 8px;
-  --card-fs: 13px;
-  --lane-py: 10px;
+  --card-py: 11px;
+  --card-fs: 14px;
+  --lane-py: 12px;
 }
 [data-density='compact'] {
   --cell-max: 208px;
   --cell-min: 44px;
-  --card-py: 5px;
-  --card-fs: 12px;
+  --card-py: 7px;
+  --card-fs: 13px;
   --lane-py: 6px;
 }
 
@@ -122,11 +123,12 @@ select {
 }
 
 .micro {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0.015em;
+  text-transform: none;
   color: var(--fg-2);
+  line-height: 1.4;
 }
 
 .demo-banner {
@@ -135,8 +137,8 @@ select {
   flex-wrap: wrap;
   align-items: center;
   gap: 10px 24px;
-  padding: 10px 16px;
-  background: var(--bg-2);
+  padding: 8px 16px;
+  background: var(--bg-0);
   border-bottom: 1px solid var(--line-2);
 }
 
@@ -144,9 +146,10 @@ select {
   display: flex;
   flex: 1 1 320px;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   color: var(--fg-1);
   overflow-wrap: anywhere;
+  font-size: 12px;
 }
 
 .demo-copy strong {
@@ -174,14 +177,15 @@ select {
 .topbar-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
+  gap: 12px;
+  padding: 12px 16px;
+  flex-wrap: wrap;
 }
 
 .topbar-row + .topbar-row {
-  border-top: 1px solid var(--line-1);
-  padding-top: 7px;
-  padding-bottom: 7px;
+  border-top: 0;
+  padding-top: 9px;
+  padding-bottom: 9px;
 }
 
 .brand {
@@ -193,22 +197,23 @@ select {
 }
 
 .brand-mark {
-  width: 22px;
-  height: 22px;
-  border-radius: 5px;
-  background: var(--bg-3);
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: #2a1e2b;
   border: 1px solid var(--line-2);
   display: grid;
   place-items: center;
   color: var(--red);
-  font-size: 12px;
+  font-size: 15px;
+  border-color: #623042;
 }
 
 .brand-name {
-  font-family: var(--mono);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
+  font-family: var(--sans);
+  font-size: 18px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -216,14 +221,15 @@ select {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 8px;
+  padding: 5px 9px;
   border-radius: 999px;
   border: 1px solid;
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0.015em;
   text-transform: uppercase;
   white-space: nowrap;
+  color: var(--fg-0);
 }
 
 .alert-dot {
@@ -259,17 +265,18 @@ select {
 
 .search {
   position: relative;
-  flex: 0 1 260px;
+  flex: 0 1 340px;
   min-width: 140px;
 }
 
 .search input {
   width: 100%;
-  padding: 5px 26px 5px 28px;
-  background: var(--bg-3);
+  padding: 9px 30px 9px 32px;
+  background: var(--bg-0);
   border: 1px solid var(--line-2);
   border-radius: var(--radius);
   outline-offset: 0;
+  border-color: var(--line-1);
 }
 
 .search input::placeholder {
@@ -311,7 +318,7 @@ select {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px;
+  padding: 7px 12px;
   background: var(--bg-3);
   border: 1px solid var(--line-2);
   border-radius: var(--radius);
@@ -319,6 +326,7 @@ select {
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.12s, border-color 0.12s, color 0.12s;
+  font-weight: 550;
 }
 
 .btn:hover {
@@ -328,13 +336,14 @@ select {
 }
 
 .btn.primary {
-  background: rgba(10, 132, 255, 0.16);
-  border-color: rgba(10, 132, 255, 0.5);
-  color: #9fcbff;
+  background: #8cbeff;
+  border-color: #8cbeff;
+  color: #0c182a;
 }
 
 .btn.primary:hover {
-  background: rgba(10, 132, 255, 0.26);
+  background: #b0d3ff;
+  border-color: #b0d3ff;
 }
 
 .btn.danger {
@@ -358,17 +367,18 @@ select {
 }
 
 .btn.sm {
-  padding: 3px 7px;
+  padding: 5px 10px;
   font-size: 12px;
 }
 
 .btn.icon {
   padding: 4px;
-  min-width: 24px;
+  min-width: 28px;
   justify-content: center;
   background: transparent;
   border-color: transparent;
   color: var(--fg-2);
+  min-height: 28px;
 }
 
 .btn.icon:hover {
@@ -381,15 +391,15 @@ select {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 8px;
+  padding: 6px 10px;
   background: transparent;
   border: 1px solid var(--line-2);
-  border-radius: 999px;
-  color: var(--fg-2);
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  border-radius: 8px;
+  color: var(--fg-1);
+  font-family: var(--sans);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
   cursor: pointer;
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
@@ -400,8 +410,8 @@ select {
 }
 
 .chip[aria-pressed='true'] {
-  background: var(--bg-4);
-  border-color: var(--line-3);
+  background: #263f60;
+  border-color: #76a3de;
   color: var(--fg-0);
 }
 
@@ -425,14 +435,14 @@ select {
 }
 
 .seg button {
-  padding: 3px 9px;
+  padding: 6px 10px;
   background: transparent;
   border: 0;
   color: var(--fg-2);
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--sans);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
   cursor: pointer;
 }
 
@@ -458,14 +468,14 @@ select {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 8px;
+  padding: 3px 0;
   border-radius: var(--radius);
-  border: 1px solid var(--line-2);
-  background: var(--bg-2);
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  border: 0;
+  background: transparent;
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--fg-2);
   white-space: nowrap;
 }
@@ -512,9 +522,9 @@ select {
 
 .deck {
   flex: 0 0 auto;
-  background: var(--bg-1);
+  background: var(--bg-0);
   border-bottom: 1px solid var(--line-1);
-  max-height: 42vh;
+  max-height: min(34dvh, 280px);
   overflow-y: auto;
 }
 
@@ -522,29 +532,30 @@ select {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 14px;
+  padding: 10px 16px;
 }
 
 .deck-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
-  gap: 8px;
-  padding: 0 14px 12px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+  padding: 0 16px 14px;
 }
 
 .tile {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  padding: 9px 10px 10px;
-  background: var(--bg-2);
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--bg-1);
   border: 1px solid var(--line-1);
-  border-radius: var(--radius);
+  border-radius: 11px;
   text-align: left;
   cursor: pointer;
   overflow: hidden;
   transition: border-color 0.12s, background 0.12s, transform 0.12s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
 .tile:hover {
@@ -553,13 +564,13 @@ select {
 }
 
 .tile[data-focused='true'] {
-  border-color: var(--line-3);
-  background: var(--bg-3);
-  box-shadow: inset 0 0 0 1px var(--line-3);
+  border-color: var(--blue);
+  background: #1a2c43;
+  box-shadow: inset 0 0 0 1px var(--blue);
 }
 
 .tile[data-dimmed='true'] {
-  opacity: 0.42;
+  opacity: 0.65;
 }
 
 .tile-bar {
@@ -578,9 +589,9 @@ select {
 }
 
 .tile-name {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.3;
   /* A project title is never cut off: half a name is worse than a taller tile.
      Long names wrap, mid-word if there is nowhere else to break. */
   min-width: 0;
@@ -591,37 +602,43 @@ select {
 .tile-desc {
   margin: 0;
   padding-left: 6px;
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: 12px;
+  line-height: 1.45;
   color: var(--fg-1);
   /* Shown in full — the tile and its row grow, the text is never clipped.
      Line breaks the user typed are kept. */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  padding-top: 6px;
+  border-top: 1px solid var(--line-1);
 }
 
 .tile-pct {
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--fg-2);
+  font-family: var(--sans);
+  font-size: 22px;
+  color: var(--fg-0);
   flex: 0 0 auto;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
 }
 
 .tile-body {
   padding-left: 6px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .deadline {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.05em;
-  white-space: nowrap;
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0;
+  white-space: normal;
+  flex-wrap: wrap;
 }
 
 .deadline[data-tone='overdue'] {
@@ -645,8 +662,8 @@ select {
 }
 
 .meter {
-  height: 3px;
-  border-radius: 2px;
+  height: 4px;
+  border-radius: 4px;
   background: var(--bg-4);
   overflow: hidden;
 }
@@ -717,6 +734,9 @@ select {
   grid-template-columns: var(--lane-w) repeat(5, minmax(var(--col-min), 1fr));
   align-content: start;
   min-height: 100%;
+  column-gap: 8px;
+  row-gap: 8px;
+  padding: 0 12px 12px;
 }
 
 .corner {
@@ -726,8 +746,8 @@ select {
   z-index: 5;
   height: var(--colhead-h);
   background: var(--bg-1);
-  border-right: 1px solid var(--line-2);
-  border-bottom: 1px solid var(--line-2);
+  border-right: 0;
+  border-bottom: 1px solid var(--line-1);
   display: flex;
   align-items: center;
   padding: 0 12px;
@@ -739,13 +759,13 @@ select {
   z-index: 3;
   height: var(--colhead-h);
   background: var(--bg-1);
-  border-bottom: 1px solid var(--line-2);
-  border-right: 1px solid var(--line-1);
+  border-bottom: 1px solid var(--line-1);
+  border-right: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 0 12px;
+  padding: 0 10px;
 }
 
 .colhead:last-child {
@@ -760,19 +780,19 @@ select {
 }
 
 .colhead-name {
-  font-family: var(--mono);
-  font-size: 11px;
+  font-family: var(--sans);
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--fg-0);
   white-space: nowrap;
 }
 
 .colhead-hint {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.06em;
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0;
   color: var(--fg-2);
 }
 
@@ -787,13 +807,13 @@ select {
 }
 
 .count {
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--fg-2);
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--fg-1);
   background: var(--bg-3);
-  border: 1px solid var(--line-2);
-  border-radius: 3px;
-  padding: 0 5px;
+  border: 0;
+  border-radius: 6px;
+  padding: 2px 6px;
   flex: 0 0 auto;
 }
 
@@ -806,11 +826,13 @@ select {
   background: var(--bg-1);
   border-right: 1px solid var(--line-2);
   border-bottom: 1px solid var(--line-1);
-  padding: var(--lane-py) 10px var(--lane-py) 12px;
+  padding: var(--lane-py) 10px var(--lane-py) 14px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-width: 0;
+  border: 1px solid var(--line-1);
+  border-radius: 9px;
 }
 
 .lane-head::before {
@@ -819,6 +841,7 @@ select {
   inset: 0 auto 0 0;
   width: 3px;
   background: var(--lane-color, var(--blue));
+  border-radius: 9px 0 0 9px;
 }
 
 .lane-head[data-dimmed='true'] {
@@ -835,9 +858,9 @@ select {
 .lane-name {
   flex: 1 1 auto;
   min-width: 0;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.35;
   /* Never cut off, same as .tile-name — the rail grows in height instead.
      Buttons do not wrap by default, hence the explicit white-space. */
   white-space: normal;
@@ -893,16 +916,18 @@ select {
   position: relative;
   border-right: 1px solid var(--line-1);
   border-bottom: 1px solid var(--line-1);
-  background: var(--bg-0);
-  padding: 6px;
+  background: #101926;
+  padding: 8px;
   min-height: var(--cell-min);
   max-height: var(--cell-max);
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 8px;
   transition: background 0.12s, box-shadow 0.12s;
+  border: 1px solid var(--line-1);
+  border-radius: 9px;
 }
 
 .cell:last-of-type {
@@ -910,13 +935,13 @@ select {
 }
 
 .cell[data-status='doing'] {
-  background: #090c11;
+  background: #111d2e;
 }
 .cell[data-status='blocked'] {
-  background: #0c0a08;
+  background: #201b18;
 }
 .cell[data-status='done'] {
-  background: #0a0b0d;
+  background: #111d1c;
 }
 
 .cell[data-over='true'] {
@@ -938,14 +963,14 @@ select {
 
 .cell-add {
   align-self: stretch;
-  padding: 3px;
+  padding: 6px;
   background: transparent;
   border: 1px dashed var(--line-2);
-  border-radius: 4px;
+  border-radius: 7px;
   color: var(--fg-2);
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
+  font-family: var(--sans);
+  font-size: 12px;
+  letter-spacing: 0;
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.12s, color 0.12s, border-color 0.12s;
@@ -969,15 +994,15 @@ select {
 
 .quick-add input {
   width: 100%;
-  padding: 5px 7px;
+  padding: 8px 10px;
   background: var(--bg-3);
   border: 1px solid var(--blue);
-  border-radius: 4px;
+  border-radius: 7px;
 }
 
 .quick-add-hint {
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.04em;
   color: var(--fg-2);
   padding-left: 2px;
@@ -997,30 +1022,34 @@ select {
   position: relative;
   display: flex;
   align-items: flex-start;
-  gap: 7px;
+  gap: 9px;
   /* A touch more air than the border needs: the left value also swallows the
      3px DEFCON stripe, so the text keeps the same inset on both sides. */
-  padding: var(--card-py) 10px var(--card-py) 12px;
+  padding: var(--card-py) 11px var(--card-py) 13px;
   background: var(--bg-2);
   border: 1px solid var(--line-1);
-  border-radius: 5px;
+  border-radius: 9px;
   font-size: var(--card-fs);
-  line-height: 1.35;
+  line-height: 1.45;
   cursor: grab;
   overflow: hidden;
   -webkit-user-drag: element;
   touch-action: manipulation;
-  transition: border-color 0.12s, background 0.12s;
+  transition: border-color 0.16s, background 0.16s, box-shadow 0.16s;
+  border-color: #35465f;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.22);
 }
 
 .card:hover {
   background: var(--bg-3);
-  border-color: var(--line-2);
+  border-color: #647d9e;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.28);
 }
 
 .card[data-selected='true'] {
   border-color: var(--blue);
-  box-shadow: 0 0 0 1px rgba(10, 132, 255, 0.5);
+  box-shadow: 0 0 0 1px var(--blue), 0 4px 12px rgba(0, 0, 0, 0.25);
+  background: #243b58;
 }
 
 .card[data-dragging='true'] {
@@ -1046,7 +1075,7 @@ select {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 6px;
 }
 
 /**
@@ -1056,6 +1085,7 @@ select {
  */
 .card-title {
   overflow-wrap: anywhere;
+  font-weight: 550;
 }
 
 /* Wrapped lines sit a hair tighter when many lanes share the screen. */
@@ -1072,14 +1102,14 @@ select {
 
 .dc {
   flex: 0 0 auto;
-  width: 15px;
-  height: 15px;
+  width: 19px;
+  height: 19px;
   margin-top: 1px;
-  border-radius: 3px;
+  border-radius: 5px;
   display: grid;
   place-items: center;
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   /* The level number sits on the signal colour, so the colour decides the ink:
      dark on yellow and green, light on the deep red and blue. */
@@ -1091,15 +1121,15 @@ select {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.03em;
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0;
   color: var(--fg-2);
   white-space: nowrap;
 }
 
 .due[data-tone='overdue'] {
-  color: var(--red);
+  color: var(--danger-text);
 }
 .due[data-tone='today'] {
   color: var(--amber);
@@ -1113,9 +1143,9 @@ select {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.03em;
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0;
   color: #dcaaff;
   white-space: nowrap;
 }
@@ -1262,11 +1292,12 @@ select {
 }
 
 .today-label {
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-family: var(--sans);
+  font-size: 14px;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--fg-0);
+  font-weight: 600;
 }
 
 .today-label[data-section='overdue'] {
@@ -1287,13 +1318,14 @@ select {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px 6px 12px;
+  padding: 10px 12px 10px 14px;
   background: var(--bg-2);
   border: 1px solid var(--line-1);
-  border-radius: 5px;
+  border-radius: 9px;
   cursor: pointer;
   overflow: hidden;
   transition: border-color 0.12s, background 0.12s;
+  font-size: 14px;
 }
 
 .today-row:hover {
@@ -1318,8 +1350,9 @@ select {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .today-project {
@@ -1329,13 +1362,14 @@ select {
   flex: 0 0 auto;
   max-width: 180px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  text-overflow: clip;
+  white-space: normal;
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--fg-2);
+  overflow-wrap: anywhere;
 }
 
 .today-dot {
@@ -1388,7 +1422,7 @@ select {
   overflow-y: auto;
   background: var(--bg-1);
   border: 1px solid var(--line-2);
-  border-radius: 9px;
+  border-radius: 14px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
 }
 
@@ -1401,23 +1435,23 @@ select {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 16px 18px;
   border-bottom: 1px solid var(--line-1);
 }
 
 .dialog-title {
-  font-family: var(--mono);
-  font-size: 11px;
+  font-family: var(--sans);
+  font-size: 17px;
   font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: -0.015em;
+  text-transform: none;
 }
 
 .dialog-body {
-  padding: 14px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
-  gap: 13px;
+  gap: 16px;
 }
 
 .dialog-foot {
@@ -1435,10 +1469,10 @@ select {
 }
 
 .field > label {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+  font-family: var(--sans);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--fg-2);
 }
 
@@ -1662,7 +1696,10 @@ kbd {
 }
 
 .view-options {
-  display: contents;
+  display: block;
+  padding: 0 16px 14px;
+  max-height: 36dvh;
+  overflow-y: auto;
 }
 
 .view-options[hidden] {
@@ -1715,21 +1752,15 @@ kbd {
     margin-left: auto;
   }
 
-  .view-options:not([hidden]) {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    flex-basis: 100%;
+  .view-options {
     max-height: 25dvh;
-    overflow-y: auto;
-    padding: 4px 0;
+    padding: 0 8px 8px;
   }
 
-  .view-options > .divider,
-  .view-options > .spacer {
+  .toolbar-summary {
     display: none;
   }
+
 
   .deck {
     max-height: 25dvh;
@@ -1782,5 +1813,107 @@ kbd {
   .dialog textarea,
   .dialog select {
     font-size: 16px;
+  }
+}
+
+.toolbar-summary {
+  color: var(--fg-2);
+  font-size: 12px;
+}
+
+.view-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line-1);
+  border-radius: 10px;
+  background: var(--bg-0);
+}
+
+.option-group {
+  display: flex;
+  align-content: start;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.option-group > .micro {
+  flex-basis: 100%;
+  margin-bottom: 3px;
+  font-weight: 600;
+}
+
+[data-density='compact'] .cell {
+  padding: 6px;
+  gap: 6px;
+}
+
+[data-density='compact'] .tile {
+  padding: 9px 12px;
+  gap: 6px;
+}
+
+@keyframes surface-reveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes task-completed {
+  from { background-color: #24473c; }
+  to { background-color: var(--bg-2); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .deck-grid,
+  .view-options:not([hidden]),
+  .dialog {
+    animation: surface-reveal 140ms ease-out;
+  }
+
+  .card[data-done='true'] {
+    animation: task-completed 220ms ease-out;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .view-options-grid {
+    grid-template-columns: 1fr;
+    padding: 10px;
+  }
+
+  .deck-grid {
+    grid-template-columns: 1fr;
+    padding: 0 8px 8px;
+  }
+
+  .board {
+    padding: 0 6px 6px;
+    column-gap: 6px;
+    row-gap: 6px;
+  }
+
+  .today-row {
+    flex-wrap: wrap;
+  }
+
+  .today-title {
+    flex-basis: calc(100% - 32px);
+  }
+
+  .dialog-foot {
+    flex-wrap: wrap;
   }
 }

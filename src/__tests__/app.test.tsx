@@ -108,6 +108,31 @@ describe('App', () => {
     assert.ok(within(backlog).getByText('First task'))
   })
 
+  it('keeps desktop view options behind a keyboard-accessible disclosure', async () => {
+    const user = await renderWithDemo()
+    assert.ok(screen.queryByRole('group', { name: 'Dichte' }) === null)
+    assert.ok(screen.getByRole('textbox', { name: 'Tasks durchsuchen' }))
+    assert.ok(screen.getByRole('button', { name: /^Heute/ }))
+    const trigger = screen.getByRole('button', { name: 'Ansicht & Filter' })
+    await user.click(trigger)
+    await user.click(screen.getByRole('button', { name: 'Kompakt' }))
+    await user.click(within(document.querySelector('.topbar') as HTMLElement).getByTitle(/DEFCON 3/))
+    await user.keyboard('{Escape}')
+    assert.ok(screen.queryByRole('group', { name: 'Dichte' }) === null)
+    assert.equal(trigger.getAttribute('aria-expanded'), 'false')
+    assert.ok(document.activeElement === trigger)
+    assert.match(trigger.textContent ?? '', /1/)
+    assert.equal(document.querySelector('.app')?.getAttribute('data-density'), 'compact')
+    assert.ok(!laneNames().includes('Onboarding Tool'), 'closing options must keep active filters')
+    await user.keyboard('{Enter}')
+    assert.ok(screen.getByRole('group', { name: 'Dichte' }))
+    await user.keyboard('{Escape}')
+    assert.equal(trigger.getAttribute('aria-expanded'), 'false')
+    assert.ok(document.activeElement === trigger)
+    assert.match(trigger.textContent ?? '', /1/)
+    assert.ok(!laneNames().includes('Onboarding Tool'), 'Escape on the trigger must keep active filters')
+  })
+
   it('keeps the board accessible on narrow screens and lets users open view options', async () => {
     vi.stubGlobal('matchMedia', () => ({
       matches: true, media: '(max-width: 600px)', onchange: null,
@@ -117,12 +142,12 @@ describe('App', () => {
     const user = await renderWithDemo()
     const deck = screen.getByRole('region', { name: 'Projektübersicht' })
     assert.equal(within(deck).getByTitle('Übersicht aufklappen').getAttribute('aria-expanded'), 'false')
-    assert.equal(screen.queryByRole('group', { name: 'Dichte' }), null)
+    assert.ok(screen.queryByRole('group', { name: 'Dichte' }) === null)
     const options = screen.getByRole('button', { name: /Ansicht & Filter/ })
     await user.click(options)
     await user.click(screen.getByRole('button', { name: 'Kompakt' }))
     await user.click(options)
-    assert.equal(screen.queryByRole('group', { name: 'Dichte' }), null)
+    assert.ok(screen.queryByRole('group', { name: 'Dichte' }) === null)
     assert.equal(document.querySelector('.app')?.getAttribute('data-density'), 'compact')
     await user.click(within(deck).getByTitle('Übersicht aufklappen'))
     assert.ok(within(deck).getByText('Migration Cloud'))
@@ -360,6 +385,7 @@ describe('App', () => {
     })
 
     // The hand order survives underneath: manual mode brings it back unchanged.
+    await user.click(screen.getByRole('button', { name: /Ansicht & Filter/ }))
     await user.click(within(document.querySelector('.topbar') as HTMLElement).getByTitle(/genau so/))
     await waitFor(() => {
       assert.deepEqual(cardTitles(backlog()), ['Anforderungen sammeln', 'Nachtrag'])
@@ -391,6 +417,7 @@ describe('App', () => {
 
     // And the chip mutes it for good.
     const topbar = document.querySelector('.topbar') as HTMLElement
+    await user.click(screen.getByRole('button', { name: /Ansicht & Filter/ }))
     await user.click(within(topbar).getByTitle(/Alarmton/))
     fireEvent.keyDown(window, { key: 'n' })
     await user.type(await screen.findByLabelText('Neuer Task'), 'Alles brennt !1{Enter}')
@@ -508,6 +535,7 @@ describe('App', () => {
     })
 
     const topbar = document.querySelector('.topbar') as HTMLElement
+    await user.click(screen.getByRole('button', { name: /Ansicht & Filter/ }))
     await user.click(within(topbar).getByTitle(/DEFCON 3/))
 
     await waitFor(() => {
@@ -552,6 +580,7 @@ describe('App', () => {
   it('switches the whole interface to English and back', async () => {
     const user = await renderWithDemo()
 
+    await user.click(screen.getByRole('button', { name: /Ansicht & Filter/ }))
     await user.click(screen.getByRole('button', { name: 'EN' }))
 
     await waitFor(() => {

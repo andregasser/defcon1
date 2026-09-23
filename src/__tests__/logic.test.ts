@@ -782,6 +782,25 @@ function cssBlock(css: string, selector: string): string {
   return css.slice(start, css.indexOf('}', start))
 }
 
+describe('task metadata contrast', () => {
+  it('keeps overdue dates readable on normal, hovered and selected cards', () => {
+    const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8')
+    const resolve = (value: string): string => {
+      const variable = /^var\((--[\w-]+)\)$/.exec(value)
+      if (!variable) return value
+      const color = cssBlock(css, ':root').match(new RegExp(`${variable[1]}:\\s*(#[a-fA-F0-9]+)`))?.[1]
+      assert.ok(color, `missing color ${value}`)
+      return color
+    }
+    const color = resolve(cssBlock(css, ".due[data-tone='overdue']").match(/color:\s*([^;]+)/)![1])
+    for (const selector of ['.card', '.card:hover', ".card[data-selected='true']"]) {
+      const background = resolve(cssBlock(css, selector).match(/background:\s*([^;]+)/)![1])
+      const ratio = contrast(color, background)
+      assert.ok(ratio >= 4.5, `${selector}: overdue text has only ${ratio.toFixed(2)}:1 contrast`)
+    }
+  })
+})
+
 describe('text on the board is never truncated', () => {
   // Whether a project name, a description or a task title fits is decided in CSS
   // alone, so this is the only place where the promise "you always see all of it"
