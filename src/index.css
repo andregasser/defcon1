@@ -1660,3 +1660,127 @@ kbd {
     flex-wrap: wrap;
   }
 }
+
+.view-options {
+  display: contents;
+}
+
+.view-options[hidden] {
+  display: none;
+}
+
+.cell[data-empty='true'] .cell-add {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .cell-add {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 600px) {
+  :root {
+    --lane-w: 120px;
+    --col-min: 190px;
+  }
+
+  .topbar-row {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .topbar-row:first-child .spacer {
+    display: none;
+  }
+
+  .topbar-row:first-child > .btn,
+  .topbar-row:first-child > .sync {
+    order: 2;
+  }
+
+  .topbar-row:first-child > .help-button {
+    order: 0;
+    margin-left: auto;
+  }
+
+  .search {
+    order: 1;
+    flex: 1 1 100%;
+    width: auto;
+  }
+
+  .view-toggle {
+    margin-left: auto;
+  }
+
+  .view-options:not([hidden]) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    flex-basis: 100%;
+    max-height: 25dvh;
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+
+  .view-options > .divider,
+  .view-options > .spacer {
+    display: none;
+  }
+
+  .deck {
+    max-height: 25dvh;
+  }
+
+  .lane-top {
+    flex-wrap: wrap;
+  }
+
+  .lane-name {
+    order: -1;
+    flex-basis: 100%;
+  }
+
+  .lane-actions {
+    opacity: 1;
+  }
+
+  .lane-head .deadline {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+
+  .deck-head {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .board-scroll-hint {
+    flex: 0 0 auto;
+    padding: 5px 8px;
+    color: var(--fg-2);
+    font-size: 11px;
+  }
+
+  .cell-add {
+    min-height: 36px;
+    font-size: 12px;
+  }
+
+  .topbar button,
+  .deck-head button {
+    min-height: 32px;
+  }
+
+  .search input,
+  .quick-add input,
+  .dialog input,
+  .dialog textarea,
+  .dialog select {
+    font-size: 16px;
+  }
+}

@@ -44,11 +44,21 @@ export const TaskCard = memo(function TaskCard({ task, selected, onSelect, onOpe
         transform: CSS.Translate.toString(transform),
         transition,
       }}
+      onFocus={() => onSelect(task.id)}
       onClick={() => onSelect(task.id)}
       onDoubleClick={() => onOpen(task.id)}
       title={task.note ? `${task.title}\n\n${task.note}` : task.title}
       {...attributes}
       {...listeners}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' && !isDragging) {
+          event.preventDefault()
+          event.stopPropagation()
+          onOpen(task.id)
+        } else {
+          listeners?.onKeyDown?.(event)
+        }
+      }}
     >
       <DefconBadge level={task.defcon} />
       <div className="card-main">

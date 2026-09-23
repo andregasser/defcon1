@@ -182,6 +182,9 @@ the `ALARM` chip silences it for good on that device.
 
 | Key | Action |
 | --- | --- |
+| <kbd>Tab</kbd> / <kbd>Shift</kbd> + <kbd>Tab</kbd> | focus and select a card |
+| <kbd>Enter</kbd> | open the focused card |
+| <kbd>Space</kbd>, arrow keys, <kbd>Space</kbd> | pick up, move and drop a card; <kbd>Escape</kbd> cancels |
 | <kbd>1</kbd>–<kbd>5</kbd> | move the selected task to Backlog / Todo / In Progress / Blocked / Done |
 | <kbd>Shift</kbd> + <kbd>1</kbd>–<kbd>5</kbd> | set its DEFCON level |
 | <kbd>t</kbd> | toggle the Today list across all projects |
@@ -197,8 +200,23 @@ the `ALARM` chip silences it for good on that device.
 | <kbd>Escape</kbd> | backs out of quick-add → selection → search → filter → focus → Today, in that order |
 
 With the mouse: drag cards between columns, between projects, or to reorder
-within a column. Click selects, double-click opens, and `+ Task` appears when
-you hover a cell.
+within a column. Click selects and double-click opens. Empty cells always show
+`+ Add task`, so a new project has a visible starting point. On touch devices,
+add buttons stay visible in populated cells too.
+
+Tabbing to a card selects it, so task shortcuts act on the focused card.
+Shift + number works with symbol-producing keyboard layouts and the numeric
+keypad. Dialogs focus the first input, keep keyboard focus inside while open,
+and return it to the opening control when that control is still present.
+
+### Small screens
+
+At widths up to 600 px, the project overview starts collapsed independently of
+your saved desktop setting. Search and Today stay directly accessible; open
+**View & filters** for DEFCON filters, density, sorting, language and other view
+options. Active DEFCON filters are counted on that button. Both disclosures
+can be opened without changing the desktop overview preference. Scroll the
+board sideways to reach the remaining columns; the project rail stays visible.
 
 ### Quick-add syntax
 

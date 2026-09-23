@@ -46,6 +46,10 @@ export function HelpDialog({ mode, onClose, onLoadDemo }: Props) {
       <div className="dialog-body">
         <div className="help-list">
           <span className="help-section">{t.help.keyboard}</span>
+          <Keys tokens={['Tab']} />
+          <span>{t.help.keys.focus}</span>
+          <Keys tokens={['Space']} />
+          <span>{t.help.keys.keyboardDrag}</span>
           <Keys tokens={['/']} />
           <span>{t.help.keys.search}</span>
           <Keys tokens={['t']} />
@@ -62,7 +66,7 @@ export function HelpDialog({ mode, onClose, onLoadDemo }: Props) {
             <kbd>⇧</kbd> + <kbd>1</kbd> … <kbd>5</kbd>
           </span>
           <span>{t.help.keys.setDefcon}</span>
-          <Keys tokens={['e']} />
+          <Keys tokens={['Enter', '/', 'e']} />
           <span>{t.help.keys.edit}</span>
           <Keys tokens={['x']} />
           <span>{t.help.keys.done}</span>
