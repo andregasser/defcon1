@@ -31,6 +31,17 @@ npm install
 | `npm start` | Build, then serve `dist/` + the API on `:7777` |
 | `npm run serve` | Serve only, no rebuild |
 
+Run these commands from the repository root. For normal use, run `npm start`
+and open <http://127.0.0.1:7777>. Keep the terminal open while using the board.
+
+* **Stop:** press `Ctrl+C` in the terminal running the server.
+* **Restart:** stop with `Ctrl+C`, then run `npm start` again. Use
+  `npm run serve` instead if the existing build is still current.
+* There are no dedicated stop or restart scripts. Board data stays on disk
+  when the server stops.
+* For development, run `npm run dev` and open <http://localhost:5173>;
+  `Ctrl+C` stops both Vite and the API server.
+
 Environment: `DEFCON1_PORT` (7777), `DEFCON1_HOST` (127.0.0.1),
 `DEFCON1_DATA_DIR` (`./data`).
 
