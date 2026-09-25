@@ -27,6 +27,8 @@ import { TopBar } from './components/TopBar'
 import { STATUS_IDS } from './constants'
 import { useBoard } from './hooks/useBoard'
 import { usePrefs } from './hooks/usePrefs'
+import { useTodayDate } from './hooks/useTodayDate'
+import { makeTodayUndo, todayUndoPatch, type TodayUndo } from './lib/todayUndo'
 import { useNarrowLayout } from './hooks/useNarrowLayout'
 import { getDict, I18nProvider } from './i18n'
 import {
@@ -48,7 +50,7 @@ import { playAlarm, preloadAlarm } from './lib/alarm'
 import { nowISO } from './lib/date'
 import { parseQuickAdd } from './lib/quickAdd'
 import { downloadBackup, EMPTY_BACKUP, parseBackup } from './lib/storage'
-import { todayCount, todayList } from './lib/today'
+import { buildTodayWorkspace } from './lib/today'
 import type { Defcon, Lang, Status, Task } from './types'
 
 /**
@@ -82,6 +84,10 @@ export default function App() {
   const [projectDialogId, setProjectDialogId] = useState<string | null | undefined>(undefined)
   const [helpOpen, setHelpOpen] = useState(false)
   const [todayOpen, setTodayOpen] = useState(false)
+  const day = useTodayDate()
+  const [lastUndo, setLastUndo] = useState<TodayUndo | null>(null)
+  const [todayMessage, setTodayMessage] = useState<string | null>(null)
+  const [todayFocusRequest, setTodayFocusRequest] = useState<{ id: string } | null>(null)
 
   const searchRef = useRef<HTMLInputElement>(null)
   const importRef = useRef<HTMLInputElement>(null)
@@ -182,26 +188,18 @@ export default function App() {
   const allCollapsed =
     visibleProjects.length > 0 && visibleProjects.every((project) => collapsedIds.has(project.id))
 
-  /**
-   * The Heute list deliberately ignores search and the DEFCON filter — it has
-   * its own idea of what is urgent — but it does respect the project focus, so
-   * "nur dieses Projekt" keeps meaning the same thing everywhere.
-   */
-  const todaySections = useMemo(
-    () =>
-      todayList(
-        focusedIds.size > 0
-          ? data.tasks.filter((task) => focusedIds.has(task.projectId))
-          : data.tasks,
-      ),
-    [data.tasks, focusedIds],
+  const todayWorkspace = useMemo(
+    () => buildTodayWorkspace(data.tasks.filter((task) => focusedIds.size === 0 || focusedIds.has(task.projectId)), day),
+    [data.tasks, focusedIds, day],
   )
-  const todayTotal = useMemo(() => todayCount(todaySections), [todaySections])
+  const todayTotal = todayWorkspace.planned.length + todayWorkspace.attention.length + todayWorkspace.waiting.length
 
-  const projectsById = useMemo(
-    () => new Map(data.projects.map((project) => [project.id, project])),
-    [data.projects],
-  )
+  useEffect(() => {
+    if (prefs.focusTaskId && !data.tasks.some((task) => task.id === prefs.focusTaskId && task.status !== 'done' && task.status !== 'blocked') && mode !== 'loading') {
+      set('focusTaskId', null)
+    }
+  }, [data.tasks, prefs.focusTaskId, mode, set])
+
 
   const selectedTask = useMemo(
     () => (selectedId ? (data.tasks.find((task) => task.id === selectedId) ?? null) : null),
@@ -269,40 +267,55 @@ export default function App() {
   )
 
   const updateTask = useCallback(
-    (id: string, patch: Partial<Task>) => {
-      alarmIfCritical(patch.defcon, data.tasks.find((item) => item.id === id)?.defcon ?? null)
+    (id: string, patch: Partial<Task>, recordUndo = true, expectedUndo?: TodayUndo) => {
+      let alarmPrevious: Defcon | null = null
+      let alarmNext: Defcon | undefined
+      let applied = false
+      let undo: TodayUndo | null = null
+      let title = ''
       board.update((current) => {
         const task = current.tasks.find((item) => item.id === id)
         if (!task) return current
-
-        const nextProject = patch.projectId ?? task.projectId
-        const nextStatus = patch.status ?? task.status
+        // Validate against the same snapshot we change, including unrendered remote edits.
+        const edits = expectedUndo ? todayUndoPatch(task, expectedUndo) : patch
+        if (!edits) return current
+        const nextProject = edits.projectId ?? task.projectId
+        const nextStatus = edits.status ?? task.status
         const moved = nextProject !== task.projectId || nextStatus !== task.status
-
-        // A project or status change has to re-rank the task inside its new cell.
-        const tasks = moved
-          ? moveTaskBefore(current.tasks, id, nextProject, nextStatus, null)
-          : current.tasks
-
-        return {
-          ...current,
-          tasks: tasks.map((item) =>
-            item.id === id
-              ? {
-                  ...item,
-                  ...patch,
-                  order: item.order,
-                  projectId: nextProject,
-                  status: nextStatus,
-                  doneAt: nextStatus === 'done' ? (item.doneAt ?? nowISO()) : null,
-                }
-              : item,
-          ),
+        const tasks = moved ? moveTaskBefore(current.tasks, id, nextProject, nextStatus, null) : current.tasks
+        const movedTask = tasks.find((item) => item.id === id)!
+        const updated: Task = {
+          ...movedTask, ...edits, order: movedTask.order, projectId: nextProject, status: nextStatus,
+          doneAt: nextStatus === 'done' ? (edits.doneAt ?? movedTask.doneAt ?? nowISO()) : null,
         }
+        undo = makeTodayUndo(task, updated)
+        if (!undo) return current
+        applied = true
+        alarmPrevious = task.defcon
+        alarmNext = edits.defcon
+        title = task.title
+        return { ...current, tasks: tasks.map((item) => item.id === id ? updated : item) }
       })
+      if (applied) alarmIfCritical(alarmNext, alarmPrevious)
+      if (todayOpen && recordUndo && undo) {
+        setLastUndo(undo)
+        setTodayMessage(t.today.changed(title))
+      }
+      return applied
     },
-    [board, data.tasks, alarmIfCritical],
+    [board, alarmIfCritical, todayOpen, t],
   )
+
+  const undoToday = useCallback(() => {
+    if (!lastUndo) return
+    const applied = updateTask(lastUndo.taskId, {}, false, lastUndo)
+    setTodayFocusRequest({ id: lastUndo.taskId })
+    if (applied) {
+      setSelectedId(lastUndo.taskId)
+      setTodayMessage(t.today.undone)
+    } else setTodayMessage(t.today.undoExpired)
+    setLastUndo(null)
+  }, [lastUndo, updateTask, t])
 
   const deleteTask = useCallback(
     (id: string) => {
@@ -317,13 +330,17 @@ export default function App() {
 
   const moveTaskToStatus = useCallback(
     (id: string, status: Status) => {
+      if (todayOpen) {
+        updateTask(id, { status })
+        return
+      }
       board.update((current) => {
         const task = current.tasks.find((item) => item.id === id)
         if (!task || task.status === status) return current
         return { ...current, tasks: moveTaskBefore(current.tasks, id, task.projectId, status, null) }
       })
     },
-    [board],
+    [board, todayOpen, updateTask],
   )
 
   const saveProject = useCallback(
@@ -512,6 +529,10 @@ export default function App() {
       ) {
         return
       }
+      if (todayOpen && (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'z') {
+        if (lastUndo) { event.preventDefault(); undoToday() }
+        return
+      }
       if (event.metaKey || event.ctrlKey || event.altKey) return
 
       // Shift produces symbols on many layouts; code still identifies the key.
@@ -603,6 +624,9 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [
     activeId,
+    lastUndo,
+    undoToday,
+    todayOpen,
     dialogOpen,
     selectedTask,
     selectedId,
@@ -688,7 +712,7 @@ export default function App() {
           </div>
         )}
 
-        {!showEmptyState && (
+        {!showEmptyState && !todayOpen && (
           <CommandDeck
             projects={sortedProjects}
             statsByProject={statsByProject}
@@ -731,12 +755,25 @@ export default function App() {
         ) : todayOpen ? (
           <div className="board-scroll">
             <TodayView
-              sections={todaySections}
-              projectsById={projectsById}
+              tasks={data.tasks}
+              projects={sortedProjects}
+              focusedIds={focusedIds}
+              day={day}
+              focusTaskId={prefs.focusTaskId}
+              focusRequest={todayFocusRequest}
               selectedId={selectedId}
-              focused={focusedIds.size > 0}
+              query={query}
+              defconFilter={defconSet}
+              message={todayMessage}
+              canUndo={lastUndo !== null}
+              onUndo={undoToday}
+              onResetFilters={() => { setQuery(''); setDefconFilter([]) }}
+              onToggleProject={toggleFocus}
+              onClearProjects={clearFocus}
               onSelect={setSelectedId}
               onOpen={setTaskDialogId}
+              onFocusTask={(id) => { set('focusTaskId', id); setSelectedId(id); if (id) setTodayFocusRequest({ id }) }}
+              onUpdate={updateTask}
             />
           </div>
         ) : (

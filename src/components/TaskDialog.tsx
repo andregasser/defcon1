@@ -31,6 +31,9 @@ export function TaskDialog({ task, projects, onSave, onDelete, onClose }: Props)
   const [status, setStatus] = useState<Status>(task.status)
   const [checklist, setChecklist] = useState<ChecklistItem[]>(task.checklist)
   const [draft, setDraft] = useState('')
+  const [plannedFor, setPlannedFor] = useState(task.plannedFor ?? '')
+  const [reviewOn, setReviewOn] = useState(task.reviewOn ?? '')
+  const [blockedReason, setBlockedReason] = useState(task.blockedReason ?? '')
 
   const progress = checklistProgress({ ...task, checklist })
 
@@ -63,6 +66,9 @@ export function TaskDialog({ task, projects, onSave, onDelete, onClose }: Props)
       projectId,
       status,
       checklist: steps,
+      plannedFor: plannedFor || null,
+      reviewOn: reviewOn || null,
+      blockedReason: blockedReason.trim(),
     })
     onClose()
   }
@@ -185,6 +191,24 @@ export function TaskDialog({ task, projects, onSave, onDelete, onClose }: Props)
             </button>
           </div>
         </div>
+
+        <div className="field-row">
+          <div className="field">
+            <label htmlFor="task-planned">{t.taskDialog.plannedFor}</label>
+            <input id="task-planned" type="date" value={plannedFor} onChange={(event) => setPlannedFor(event.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="task-review">{t.taskDialog.reviewOn}</label>
+            <input id="task-review" type="date" value={reviewOn} onChange={(event) => setReviewOn(event.target.value)} />
+          </div>
+        </div>
+        <p className="task-planning-hint">{t.taskDialog.planningHint}</p>
+        {(status === 'blocked' || blockedReason !== '') && (
+          <div className="field">
+            <label htmlFor="task-blocker">{t.taskDialog.blockedReason}</label>
+            <textarea id="task-blocker" rows={2} value={blockedReason} onChange={(event) => setBlockedReason(event.target.value)} />
+          </div>
+        )}
 
         <div className="field">
           <label htmlFor="task-check-add">

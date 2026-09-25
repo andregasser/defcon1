@@ -9,7 +9,7 @@ import {
 import { detectLang, isLang } from '../i18n/lang'
 import type { BoardData, ChecklistItem, Defcon, Prefs, Project, Status, Task } from '../types'
 import { uid } from './board'
-import { nowISO } from './date'
+import { nowISO, parseISODate, todayISO } from './date'
 import { isBrowserDemo } from './runtime'
 
 /**
@@ -40,6 +40,13 @@ function asString(value: unknown, fallback = ''): string {
 
 function asDate(value: unknown): string | null {
   return typeof value === 'string' && isoDate.test(value) ? value : null
+}
+
+/** Calendar planning must reject overflow dates such as 31 April. */
+function asCalendarDate(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const date = parseISODate(value)
+  return date && todayISO(date) === value ? value : null
 }
 
 function asDefcon(value: unknown): Defcon {
@@ -109,6 +116,9 @@ export function normalizeData(raw: unknown): BoardData {
       status,
       defcon: asDefcon(task.defcon),
       due: asDate(task.due),
+      plannedFor: asCalendarDate(task.plannedFor),
+      reviewOn: asCalendarDate(task.reviewOn),
+      blockedReason: asString(task.blockedReason),
       order: Number.isFinite(task.order) ? Number(task.order) : index,
       createdAt,
       // Boards written before the aging chip existed have no timestamp: fall
@@ -200,6 +210,7 @@ export function loadPrefs(): Prefs {
       lang: isLang(parsed.lang) ? parsed.lang : fresh.lang,
       collapsedProjects: Array.isArray(parsed.collapsedProjects) ? parsed.collapsedProjects : [],
       focusedProjects: Array.isArray(parsed.focusedProjects) ? parsed.focusedProjects : [],
+      focusTaskId: asString(parsed.focusTaskId) || null,
     }
   } catch {
     return fresh

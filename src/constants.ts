@@ -100,6 +100,7 @@ export const DEFAULT_PREFS: Prefs = {
   deckOpen: true,
   collapsedProjects: [],
   focusedProjects: [],
+  focusTaskId: null,
 }
 
 export const PREFS_KEY = 'defcon1.prefs.v1'
