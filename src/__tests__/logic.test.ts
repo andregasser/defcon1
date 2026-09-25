@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
-import { describe, it } from 'vitest'
+import { describe, it, vi } from 'vitest'
 
 import {
   appendIndex,
   cellId,
   checklistProgress,
   createDemoData,
+  createTask,
   groupByCell,
   moveTask,
   moveTaskBefore,
@@ -31,9 +32,9 @@ import {
   todayISO,
 } from '../lib/date'
 import { parseQuickAdd } from '../lib/quickAdd'
-import { normalizeData, parseBackup } from '../lib/storage'
+import { loadPrefs, normalizeData, parseBackup, savePrefs } from '../lib/storage'
 import type { TodaySection, TodaySectionId } from '../lib/today'
-import { todayCount, todayList } from '../lib/today'
+import { buildTodayWorkspace, todayCount, todayList } from '../lib/today'
 import type { Defcon, Project, Status, Task } from '../types'
 
 /* ------------------------------------------------------------------ helpers */
@@ -47,6 +48,9 @@ function task(id: string, projectId: string, status: Status, order: number, defc
     status,
     defcon,
     due: null,
+    plannedFor: null,
+    reviewOn: null,
+    blockedReason: '',
     order,
     createdAt: '2026-01-01T00:00:00.000Z',
     statusSince: '2026-01-01T00:00:00.000Z',
@@ -966,5 +970,119 @@ describe('createDemoData', () => {
   it('survives a round-trip through normalizeData unchanged', () => {
     const demo = createDemoData('en')
     assert.deepEqual(normalizeData(demo), demo)
+  })
+})
+
+describe('Today persistence', () => {
+  it('defaults older tasks and newly created tasks to no plan or follow-up', () => {
+    const old = normalizeData({ projects: [{ id: 'p1' }], tasks: [{ id: 't1', projectId: 'p1' }] }).tasks[0]
+    for (const entry of [old, createTask('p1', 'todo', 'New task', 0)]) {
+      assert.equal(entry.plannedFor, null)
+      assert.equal(entry.reviewOn, null)
+      assert.equal(entry.blockedReason, '')
+    }
+  })
+
+  it('rejects impossible calendar dates and non-string follow-up fields', () => {
+    const bad = ['2026-02-29', '2026-04-31', '2026-13-01', '2026-00-15', '2026-01-00', '2026-9-25', '', 123, null]
+    const result = normalizeData({
+      projects: [project('p1', 0)],
+      tasks: bad.map((value, i) => ({ id: `t${i}`, projectId: 'p1', plannedFor: value, reviewOn: value, blockedReason: 42 })),
+    })
+    for (const entry of result.tasks) {
+      assert.equal(entry.plannedFor, null)
+      assert.equal(entry.reviewOn, null)
+      assert.equal(entry.blockedReason, '')
+    }
+  })
+
+  it('preserves plans, leap-day follow-ups and blocked reasons through backup import', () => {
+    const data = { projects: [project('p1', 0)], tasks: [{ ...task('t1', 'p1', 'blocked', 0), due: '2026-10-01', plannedFor: '2026-09-25', reviewOn: '2028-02-29', blockedReason: 'Waiting for access' }] }
+    assert.deepEqual(parseBackup(JSON.stringify({ app: 'defcon1', version: 1, data })), data)
+    assert.deepEqual(parseBackup(JSON.stringify(data)), data)
+  })
+
+  it('keeps focus as a validated device preference and defaults older preferences', () => {
+    let stored: string | null = null
+    vi.stubGlobal('localStorage', { getItem: () => stored, setItem: (_key: string, value: string) => { stored = value } })
+    try {
+      assert.equal(loadPrefs().focusTaskId, null)
+      stored = JSON.stringify({ lang: 'en' })
+      assert.equal(loadPrefs().focusTaskId, null)
+      stored = JSON.stringify({ focusTaskId: 42 })
+      assert.equal(loadPrefs().focusTaskId, null)
+      stored = JSON.stringify({ focusTaskId: '' })
+      assert.equal(loadPrefs().focusTaskId, null)
+      savePrefs({ ...loadPrefs(), focusTaskId: 't1' })
+      assert.equal(loadPrefs().focusTaskId, 't1')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+})
+
+describe('buildTodayWorkspace', () => {
+  const day = '2026-09-25'
+  const entry = (id: string, extra: Partial<Task> = {}): Task => ({ ...task(id, 'p1', 'todo', 0), ...extra })
+  const ids = (tasks: Task[]) => tasks.map((t) => t.id)
+
+  it('assigns blocked tasks once to waiting, explicit plans before attention, and calm tasks to available', () => {
+    const tasks = [
+      entry('blocked', { status: 'blocked', defcon: 1, due: '2026-09-20', plannedFor: day, reviewOn: day }),
+      entry('planned', { plannedFor: day, defcon: 1, due: day, status: 'doing' }),
+      entry('due', { due: day }), entry('overdue', { due: '2026-09-24' }),
+      entry('hot', { defcon: 2 }), entry('running', { status: 'doing' }),
+      entry('review', { reviewOn: day }), entry('old-review', { reviewOn: '2026-09-20' }),
+      entry('available', { due: '2026-09-26', reviewOn: '2026-09-26' }),
+      entry('done', { status: 'done', doneAt: new Date(2026, 8, 25, 12).toISOString() }),
+    ]
+    const before = JSON.stringify(tasks)
+    const result = buildTodayWorkspace(tasks, day)
+    assert.deepEqual(ids(result.waiting), ['blocked'])
+    assert.deepEqual(ids(result.planned), ['planned'])
+    assert.deepEqual(new Set(ids(result.attention)), new Set(['due', 'overdue', 'hot', 'running', 'review', 'old-review']))
+    assert.deepEqual(ids(result.available), ['available'])
+    assert.deepEqual(ids(result.completed), ['done'])
+    const all = [...result.waiting, ...result.planned, ...result.attention, ...result.available, ...result.completed]
+    assert.equal(all.length, tasks.length)
+    assert.equal(new Set(ids(all)).size, tasks.length)
+    assert.equal(JSON.stringify(tasks), before)
+  })
+
+  it('sorts by priority, due date, manual order and id without depending on input order', () => {
+    const tasks = [entry('z', { order: 2 }), entry('b', { order: 1 }), entry('a', { order: 1 }), entry('later', { due: '2026-09-28' }), entry('earlier', { due: '2026-09-27' }), entry('priority', { defcon: 3 })]
+    assert.deepEqual(ids(buildTodayWorkspace(tasks, day).available), ['priority', 'earlier', 'later', 'a', 'b', 'z'])
+    assert.deepEqual(ids(buildTodayWorkspace([...tasks].reverse(), day).available), ['priority', 'earlier', 'later', 'a', 'b', 'z'])
+  })
+
+  it('counts only the explicit daily plan, including blocked and previously completed planned tasks', () => {
+    const tasks = [entry('open', { plannedFor: day }), entry('blocked', { plannedFor: day, status: 'blocked' }), entry('done', { plannedFor: day, status: 'done', doneAt: new Date(2026, 8, 24, 12).toISOString() }), entry('urgent', { defcon: 1 })]
+    const result = buildTodayWorkspace(tasks, day)
+    assert.equal(result.planTotal, 3)
+    assert.equal(result.planDone, 1)
+    const tomorrow = buildTodayWorkspace(tasks, '2026-09-26')
+    assert.equal(tomorrow.planTotal, 0)
+    assert.equal(tomorrow.planDone, 0)
+    assert.deepEqual(tomorrow.planned, [])
+    assert.deepEqual(ids(tomorrow.available), ['open'])
+  })
+
+  it('includes only local-day completions and puts the latest timestamp first', () => {
+    const previousTZ = process.env.TZ
+    process.env.TZ = 'Europe/Zurich'
+    try {
+      const tasks = [
+        entry('midnight', { status: 'done', doneAt: '2026-09-24T22:15:00.000Z' }),
+        entry('late', { status: 'done', doneAt: '2026-09-25T21:59:00.000Z' }),
+        entry('yesterday', { status: 'done', doneAt: '2026-09-24T21:59:00.000Z' }),
+        entry('tomorrow', { status: 'done', doneAt: '2026-09-25T22:01:00.000Z' }),
+        entry('invalid', { status: 'done', doneAt: 'invalid' }),
+        entry('missing', { status: 'done' }),
+      ]
+      assert.deepEqual(ids(buildTodayWorkspace(tasks, day).completed), ['late', 'midnight'])
+    } finally {
+      if (previousTZ === undefined) delete process.env.TZ
+      else process.env.TZ = previousTZ
+    }
   })
 })

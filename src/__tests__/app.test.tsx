@@ -5,10 +5,10 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import userEvent from '@testing-library/user-event'
 
 import App from '../App'
-import { PREFS_KEY } from '../constants'
+import { LOCAL_DATA_KEY, PREFS_KEY } from '../constants'
 import { playAlarm } from '../lib/alarm'
-import { createDemoData } from '../lib/board'
-import { daysUntil, formatCountdown, formatDate } from '../lib/date'
+import { createDemoData, createProject, createTask } from '../lib/board'
+import { daysUntil, formatCountdown, formatDate, todayISO } from '../lib/date'
 
 /**
  * Smoke tests for the real component tree. No server is reachable here, so the
@@ -198,11 +198,11 @@ describe('App', () => {
     // Grouped by pressure, not by project — and the board is out of the way.
     assert.deepEqual(
       Array.from(list.querySelectorAll('.today-label')).map((el) => el.textContent),
-      ['Überfällig', 'In Arbeit'],
+      ['Heute bearbeiten', 'Dringend prüfen', 'Wartet auf …'],
     )
     assert.equal(document.querySelectorAll('.lane-head').length, 0)
 
-    const overdue = list.querySelector('.today-group') as HTMLElement
+    const overdue = within(list).getByRole('region', { name: 'Wartet auf …' })
     assert.ok(within(overdue).getByText('Netzwerk-Freigabe Firewall'))
     // Every row names its project, because the swimlane no longer does.
     assert.ok(within(overdue).getByText('Migration Cloud'))
@@ -576,5 +576,126 @@ describe('App', () => {
     localStorage.clear()
     render(<App />)
     assert.ok(await screen.findByRole('button', { name: 'Create the first project' }))
+  })
+})
+
+
+async function renderTodayWorkspace() {
+  const project = createProject('Delivery', 0)
+  const otherProject = createProject('Research', 1)
+  const otherTask = createTask(otherProject.id, 'backlog', 'Nächste Interviews planen', 0)
+  const first = createTask(project.id, 'todo', 'Release prüfen', 0, { due: todayISO() })
+  const second = createTask(project.id, 'todo', 'Dokumentation lesen', 1)
+  const waiting = createTask(project.id, 'blocked', 'Freigabe erhalten', 0, { defcon: 1 })
+  waiting.reviewOn = '2026-12-01'
+  waiting.due = todayISO()
+  first.checklist = [{ id: 'step', text: 'Tests prüfen', done: false }]
+  localStorage.setItem(LOCAL_DATA_KEY, JSON.stringify({ projects: [project, otherProject], tasks: [first, second, waiting, otherTask] }))
+  const user = userEvent.setup()
+  render(<App />)
+  await user.click(await screen.findByRole('button', { name: /^Heute/ }))
+  await screen.findByRole('heading', { name: 'Dein Tag. Dein Fokus.' })
+  return { user, first, second, waiting }
+}
+
+describe('Today workspace', () => {
+  it('plans a calm task without turning its plan into a deadline', async () => {
+    const { user } = await renderTodayWorkspace()
+    await user.click(screen.getByRole('button', { name: 'Aufgaben auswählen' }))
+    const task = screen.getByRole('article', { name: 'Dokumentation lesen' })
+    await user.click(within(task).getByRole('button', { name: 'Für heute einplanen' }))
+    const plan = screen.getByRole('region', { name: 'Heute bearbeiten' })
+    assert.ok(within(plan).getByText('Dokumentation lesen'))
+    await user.click(within(plan).getByRole('button', { name: 'Details öffnen' }))
+    assert.equal((screen.getByLabelText('Fällig am') as HTMLInputElement).value, '')
+    assert.equal((screen.getByLabelText('Geplant für') as HTMLInputElement).value, todayISO())
+  })
+
+  it('completes by keyboard, selects the next row and can undo', async () => {
+    const { user } = await renderTodayWorkspace()
+    const task = screen.getByRole('article', { name: 'Release prüfen' })
+    task.focus()
+    await user.keyboard('x')
+    assert.ok(screen.queryByRole('article', { name: 'Release prüfen' }) === null)
+    assert.ok(document.activeElement?.closest('[data-today-task]'), 'focus must stay in the task list')
+    await user.click(screen.getByRole('button', { name: 'Rückgängig' }))
+    assert.ok(screen.getByRole('article', { name: 'Release prüfen' }))
+    assert.ok(document.activeElement === screen.getByRole('article', { name: 'Release prüfen' }), 'undo restores keyboard focus as well as selection')
+  })
+
+  it('focuses deliberately, checks a step inline and does not auto-start another task', async () => {
+    const { user } = await renderTodayWorkspace()
+    let task = screen.getByRole('article', { name: 'Release prüfen' })
+    await user.click(within(task).getByRole('button', { name: 'In den Fokus nehmen' }))
+    const focus = screen.getByRole('region', { name: 'Jetzt im Fokus' })
+    assert.ok(within(focus).getByText('Release prüfen'))
+    await user.click(within(focus).getByLabelText('Tests prüfen abhaken'))
+    assert.equal((within(focus).getByLabelText('Tests prüfen abhaken') as HTMLInputElement).checked, true)
+    task = within(focus).getByRole('article', { name: 'Release prüfen' })
+    await user.click(within(task).getByRole('button', { name: 'Erledigen' }))
+    assert.ok(screen.getByText('Wähle bewusst, woran du jetzt arbeitest.'))
+    assert.ok(screen.getByRole('article', { name: 'Freigabe erhalten' }))
+  })
+
+  it('moves keyboard focus from the next-task suggestion into the focus card', async () => {
+    const { user } = await renderTodayWorkspace()
+    const suggestion = screen.getByRole('button', { name: /Nächste mögliche Aufgabe/ })
+    suggestion.focus()
+    await user.keyboard('{Enter}')
+    const task = within(screen.getByRole('region', { name: 'Jetzt im Fokus' })).getByRole('article', { name: 'Release prüfen' })
+    assert.ok(document.activeElement === task)
+  })
+
+  it('restores blocked status and follow-up metadata through undo', async () => {
+    const { user, waiting } = await renderTodayWorkspace()
+    const task = screen.getByRole('article', { name: 'Freigabe erhalten' })
+    await user.click(within(task).getByRole('button', { name: 'Weiterarbeiten' }))
+    await waitFor(() => {
+      const saved = JSON.parse(localStorage.getItem(LOCAL_DATA_KEY)!)
+      assert.equal(saved.tasks.find((item: { id: string }) => item.id === waiting.id).status, 'doing')
+    })
+    await user.click(screen.getByRole('button', { name: 'Rückgängig' }))
+    await waitFor(() => {
+      const saved = JSON.parse(localStorage.getItem(LOCAL_DATA_KEY)!)
+      const restored = saved.tasks.find((item: { id: string }) => item.id === waiting.id)
+      assert.equal(restored.status, 'blocked')
+      assert.equal(restored.statusSince, waiting.statusSince)
+      assert.equal(restored.doneAt, null)
+      assert.equal(restored.reviewOn, '2026-12-01')
+    })
+    assert.ok(within(screen.getByRole('region', { name: 'Wartet auf …' })).getByText('Freigabe erhalten'))
+  })
+
+  it('saves blocked reasons and follow-up dates in the task dialog', async () => {
+    const { user } = await renderTodayWorkspace()
+    const task = screen.getByRole('article', { name: 'Freigabe erhalten' })
+    await user.click(within(task).getByRole('button', { name: 'Details öffnen' }))
+    await user.type(screen.getByLabelText('Wartet auf / Blockiert durch'), 'Freigabe vom Betrieb')
+    fireEvent.change(screen.getByLabelText('Wiedervorlage'), { target: { value: '2026-12-01' } })
+    await user.click(screen.getByRole('button', { name: 'Speichern' }))
+    assert.ok(screen.getByText('Freigabe vom Betrieb'))
+    assert.ok(screen.getByRole('article', { name: 'Freigabe erhalten' }), 'critical blocked task stays visible')
+  })
+
+  it('includes blocked tasks in due filters and scopes counters to chosen projects', async () => {
+    const { user } = await renderTodayWorkspace()
+    await user.click(screen.getByRole('button', { name: /2.*Heute fällig/ }))
+    assert.ok(screen.getByRole('article', { name: 'Freigabe erhalten' }))
+    await user.click(screen.getByRole('button', { name: 'Filter zurücksetzen' }))
+    await user.click(screen.getByText('Alle Projekte', { selector: 'summary' }))
+    await user.click(within(screen.getByRole('group', { name: 'Projekte auswählen' })).getByRole('button', { name: 'Research' }))
+    assert.ok(screen.queryByRole('article', { name: 'Release prüfen' }) === null)
+    assert.ok(screen.getByRole('button', { name: /0.*Heute fällig/ }))
+    await user.click(screen.getByRole('button', { name: 'Aufgaben auswählen' }))
+    assert.ok(screen.getByRole('article', { name: 'Nächste Interviews planen' }))
+  })
+
+  it('searches the daily workspace and resets summary filters', async () => {
+    const { user } = await renderTodayWorkspace()
+    await user.type(screen.getByLabelText('Tasks durchsuchen'), 'Freigabe')
+    assert.ok(screen.queryByRole('article', { name: 'Release prüfen' }) === null)
+    assert.ok(screen.getByRole('article', { name: 'Freigabe erhalten' }))
+    await user.click(screen.getByRole('button', { name: 'Filter zurücksetzen' }))
+    assert.ok(screen.getByRole('article', { name: 'Release prüfen' }))
   })
 })

@@ -37,6 +37,11 @@ export interface Task {
   defcon: Defcon
   /** Local date, ISO `yyyy-mm-dd`. */
   due: string | null
+  /** The local calendar day deliberately reserved for this task. */
+  plannedFor: string | null
+  /** The local calendar day to follow up on this task. */
+  reviewOn: string | null
+  blockedReason: string
   /** Rank within the (projectId, status) cell. */
   order: number
   createdAt: string
@@ -81,6 +86,8 @@ export interface Prefs {
   collapsedProjects: string[]
   /** Empty = show every project. */
   focusedProjects: string[]
+  /** An explicit per-device focus; completing it never selects a successor. */
+  focusTaskId: string | null
 }
 
 /** Where the board data lives. */

@@ -132,19 +132,45 @@ Otherwise the lanes would be unreadable within a week.
 
 ### Today (<kbd>t</kbd>)
 
-One flat list across every project, grouped by pressure instead of by project:
-**Overdue**, **Due today**, **In progress**, **Hot** (DEFCON 1–2 and not yet
-being worked on).
+Today is a daily workspace with a compact project selector, clickable counters
+for due / overdue / completed tasks, and a deliberate daily plan. **Choose tasks**
+opens calm, unplanned work; tasks already needing attention can be planned directly
+from their rows. **Plan for today** never changes a due date. Unfinished plans
+from previous days keep their date and can be selected again rather than silently
+rolling over. The progress bar counts completed tasks from the explicit daily
+plan, not every urgent task that arrives during the day.
 
-Each task appears in exactly one group — the sharpest one wins — so the numbers
-actually mean something. The list ignores search and the DEFCON filter, since it
-has its own opinion about what is urgent, but it does respect the project focus.
-Selection and the usual keys (<kbd>1</kbd>–<kbd>5</kbd>, <kbd>e</kbd>,
-<kbd>x</kbd>, <kbd>Backspace</kbd>) work exactly as on the board.
+* **Work on today** — open tasks explicitly planned for this local calendar day.
+* **Needs attention** — other tasks due today or overdue, at DEFCON 1–2, in progress,
+  or ready for follow-up.
+* **Waiting for …** — all blocked tasks, with a reason and optional follow-up date.
+  Even urgent blocked tasks remain here, visibly flagged; the due/overdue counter
+  filters include them. Planning a blocked task still counts it in plan progress.
+* **Completed today** — initially collapsed, based on the local day of completion.
 
-<div align="center">
-<img src="docs/images/today.png" alt="The Today list: four groups — Overdue, Due today, In progress and Hot — each task on one row with its DEFCON badge, checklist tally, due date, idle time, status and project" width="100%">
-</div>
+Each task appears once. Choose **Focus on this task** to highlight one actionable
+task and expose its checklist. Completion offers a possible next task without
+starting it automatically. Focus is saved per device; plan dates, blocker reasons
+and follow-up dates live with the task and travel with JSON backups.
+
+Rows offer direct start/resume, completion, planning, priority, details and
+checklist actions. Tab reaches every control; arrow keys move between task rows,
+Enter opens the focused row, and the usual status/DEFCON keys still work.
+Completing a row moves keyboard focus to the next available row. **Undo** or
+<kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Z</kbd> reverses the last Today task edit in this
+session. It preserves unrelated edits and refuses to overwrite changed fields.
+It is not a general history for deletion, imports or board drag-and-drop, and it
+does not replace a text field's native undo.
+
+Search (including project names, blocker reasons and checklist text) and DEFCON
+filters apply to Today. Header counts and plan progress remain scoped to the
+selected projects, independent of those list filters. Dates refresh at local
+midnight and when returning to the tab. Both desktop and mobile layouts preserve
+full task text and honor reduced-motion preferences.
+
+Existing boards load with empty planning and follow-up fields; no manual migration
+is needed. After updating, reload all open clients before editing: older versions
+do not preserve these new fields when saving a board.
 
 ### A density switch that actually earns its keep
 
