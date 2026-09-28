@@ -1,24 +1,72 @@
 # Repository media
 
-`walkthrough.gif` is an 18.4-second, captioned sequence of real screenshots from
-the public browser demo, captured on 18 September 2026 after PR #5. It shows
-quick-add (`Ship the launch page !3 @tomorrow`), changing DEFCON from 3 to 2,
-dragging the task into In Progress, and focusing Reporting Q4. Only sample data
-is visible. The captions and outlines are presentation annotations, not app UI.
-The README keeps the animation in an expandable section and offers a still
-image and a text description of the steps.
+The README uses focused screenshots of the real app, captured on 28 September
+2026 from `22d3cb9` (the Today workspace in PR #9). Each image shows one feature;
+`board.png` supplies the overall swimlane context. The old full-window screenshots
+and animated walkthrough have been replaced by this tour and the interactive demo.
 
-`social-preview.png` is a 1280 × 640 image for GitHub's repository social preview.
-It combines a crop of the same board with the project name, positioning, and
-live demo URL. Its five colour swatches match `DEFCONS` in `src/constants.ts`.
-Upload it under **Settings → General → Social preview**; committing this file
-alone does not update GitHub's repository setting.
+All captures use the English interface, the built-in example projects and sound
+off. Only the example board is edited. No private board data is included, and no
+interface elements, text or colours are redrawn. Screenshots are cropped from
+full-resolution browser captures and stored as lossless PNGs.
 
-Both assets use the project's interface, original layout and captions, and
-system fonts. No third-party photography, recordings, or private board data
-is included. They are covered by the repository's MIT license.
+## Images
 
-When updating them, use English demo content, turn sound off, keep the existing
-DEFCON colours, and verify the final image dimensions, file size, text, and every
-animation frame. Keep each asset below 1 MB. Update the demo URL if publishing
-the media for a fork.
+| File | Dimensions | Subject |
+| --- | --- | --- |
+| `board.png` | 1280 × 364 | Three project lanes and all five status columns |
+| `project-overview.png` | 632 × 250 | Project descriptions, deadlines, progress and counters |
+| `today-plan.png` | 1156 × 244 | Today counters and one of three planned tasks completed |
+| `task-focus.png` | 1156 × 346 | The runbook in focus with its three-step checklist |
+| `today-attention.png` | 1156 × 266 | Planned work beside other tasks needing attention |
+| `waiting.png` | 1156 × 251 | A blocker reason, urgency and a due follow-up |
+| `priorities.png` | 432 × 272 | DEFCON badges, a due date and aging chips |
+| `quick-add.png` | 424 × 159 | A task title with priority and date tokens |
+| `compact.png` | 1280 × 404 | Compact density, collapsed overview and Slim Done |
+| `mobile.png` | 390 × 558 | Mobile search, filters and Today planning |
+| `social-preview.png` | 1280 × 640 | Project positioning and the current board capture |
+
+## Recreate the screenshots
+
+1. Run `npm exec vite -- --mode demo --host 127.0.0.1 --port 5186` and open
+   `http://127.0.0.1:5186/defcon1/`. Use a fresh browser profile or a dedicated
+   demo origin so resetting examples cannot replace work you want to keep.
+2. Select English, turn sound off, and use the built-in demo board. The desktop
+   captures use a 1280 × 1000 viewport, Comfort density, deadline lane sorting,
+   DEFCON task sorting, no search, no filters and no project focus.
+3. Capture the board without the overview, then expand the overview for its
+   three tiles. Crop the In Progress and Blocked columns for the priority image.
+4. Collapse the overview and select Compact plus Slim Done for `compact.png`.
+   Restore Comfort and the full Done column afterwards.
+5. Open quick-add in Reporting Q4's Backlog cell. Type `Review !2 @tomorrow`,
+   capture the input and its hints, then press Escape without adding the task.
+6. Edit **Firewall clearance for the network**. Set the blocker reason to
+   `Waiting for network security to approve the firewall rules.` and set its
+   follow-up date to the capture day. Save, then open Today.
+7. Plan **Write the runbook**, **Finalise the dashboard layout** and
+   **Align the key metrics** for today. Complete the dashboard task, then focus
+   the runbook. Leave **Refactor the Terraform modules** unplanned. The plan now
+   shows one of three complete, while the completed-today counter shows three
+   (including the two tasks already completed in the demo).
+8. Capture the Today header and plan, the focus panel, the planned/attention
+   pair, and the waiting section separately. Keep the full relevant panel and
+   its heading in every crop; do not include unrelated partial rows.
+9. For mobile, use a 390 × 844 viewport and capture the toolbar through the
+   daily plan. Restore the viewport afterwards.
+
+Demo dates are relative to the capture day, so newly captured dates should move
+forward together. Keep the real UI, official DEFCON colours and natural text
+wrapping. Verify the final files visually (not only the browser preview), check
+all README image links, and keep each image below 1 MB. The root README provides
+alt text and a short explanation for every screenshot.
+
+## Social preview and licensing
+
+`social-preview.png` retains the project title, positioning, five DEFCON swatches
+and demo URL, with a scaled copy of the current `board.png`. Upload it under
+GitHub **Settings → General → Social preview**; committing the file alone does
+not change that repository setting. Update the URL when publishing for a fork.
+
+These assets use the project's interface, original layout and captions, and
+system fonts. They contain no third-party photography or private data and are
+covered by the repository's MIT license.
