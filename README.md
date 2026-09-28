@@ -16,9 +16,11 @@ one JSON file on your disk.
 ![Server dependencies](https://img.shields.io/badge/server%20deps-0-ff9f0a)
 ![No cloud](https://img.shields.io/badge/cloud-none-ff453a)
 
-<img src="docs/images/hero.png" alt="The DEFCON 1 board: a command deck of seven project tiles with deadline countdowns above project swimlanes running across the Backlog, Todo, In Progress, Blocked and Done columns, cards colour-coded by DEFCON level" width="100%">
+<img src="docs/images/board.png" alt="Three project swimlanes across Backlog, Todo, In Progress, Blocked and Done, with task priorities, deadlines and checklist progress" width="100%">
 
 </div>
+
+[Features](#features) · [Quickstart](#quickstart) · [User guide](docs/usage.md) · [Data and backups](#where-your-data-lives)
 
 ---
 
@@ -32,19 +34,6 @@ And it stays yours. No account, no sync service, no telemetry — a tiny loopbac
 server, one `board.json`, and any browser you feel like opening.
 
 ## Quickstart
-
-<details>
-<summary><strong>Watch the board in action — 18 seconds</strong></summary>
-
-![Animated walkthrough: create a task with a due date, raise its DEFCON priority, drag it into In Progress, then focus its project.](docs/images/walkthrough.gif)
-
-Quick-add a task → set its priority → drag it into In Progress → focus a project.
-The walkthrough uses real demo screenshots, with captions and highlights.
-
-</details>
-
-Prefer a still image? [View the board screenshot](docs/images/hero.png), or
-[try the interactive demo](https://andregasser.github.io/defcon1/).
 
 Want to explore first? The [interactive demo](https://andregasser.github.io/defcon1/)
 opens with an example board. You can edit tasks, drag cards, change priorities,
@@ -99,165 +88,117 @@ Updating the existing checkout leaves its gitignored `data/` directory intact;
 replacing or deleting the checkout does not. If Git reports a conflict or a
 diverged branch, resolve it before continuing instead of forcing the update.
 
-## Highlights
+## Features
 
-### Ten projects, one screen
+Each screenshot below focuses on one part of the current app, using example
+projects. Click an image to inspect it at full size. The [user guide](docs/usage.md)
+covers the detailed rules and shortcuts.
 
-The **command deck** puts one tile per project above the board: deadline
-countdown, progress bar, and counters for open / doing / blocked / hot /
-overdue / stalled. Click a tile to focus that project, click several to focus
-several, double-click to edit it.
+### All your projects on one board
 
-Below it, the board keeps ten lanes readable: sticky column headers, a sticky
-lane rail, capped cell height so one overloaded project cannot push the others
-off screen, and collapsible lanes that leave a summary line behind.
+Every project gets a swimlane across the same five status columns. Drag tasks
+between columns or projects; sticky headings and independently scrolling cells
+keep the board readable as it grows.
 
-### Idle time, because DEFCON only tells you half the story
+The **project overview** adds deadlines, progress and counts of running, blocked,
+urgent, overdue and stalled tasks. Click a tile to focus one project, or select
+several to work across them.
 
-Every card remembers when it entered its current column. Sit still too long — **3
-days** in In Progress, **2** in Blocked — and it picks up a violet `◴ 6 d`, while
-the lane, the tile, and the header start counting the ones that stopped moving.
+![Three project tiles with deadline countdowns, completion bars and task counters.](docs/images/project-overview.png)
 
-DEFCON says what is important; idle time says what got forgotten. Reordering
-inside a column or moving a card to another project does **not** restart the
-clock — only a real column change does.
+### A deliberate daily plan
 
-### A checklist inside a task
+Open **Today** with <kbd>t</kbd>, then **Choose tasks** or **Plan for today** to
+build your day across projects. Planning leaves due dates alone; the progress bar
+counts completed tasks from your explicit plan. Unfinished plans stay on their
+original day until you deliberately plan them again.
 
-Add as many steps as you like in the task dialog: tick them off, rename them,
-delete them. The card shows only the tally — `☐ 1/3`, turning green at `☑ 3/3`.
+![Today counters and a daily plan with one of three planned tasks completed.](docs/images/today-plan.png)
 
-A step is deliberately *not* a task: no status, no DEFCON, no place on the board.
-Otherwise the lanes would be unreadable within a week.
+### One task in focus, with its checklist
 
-### Today (<kbd>t</kbd>)
+**Focus on this task** brings one task and its steps to the front. Start it, tick
+off checklist items or complete it directly; the board card shows a compact
+checklist tally. Completing a focused task offers a possible next task for you
+to choose.
 
-Today is a daily workspace with a compact project selector, clickable counters
-for due / overdue / completed tasks, and a deliberate daily plan. **Choose tasks**
-opens calm, unplanned work; tasks already needing attention can be planned directly
-from their rows. **Plan for today** never changes a due date. Unfinished plans
-from previous days keep their date and can be selected again rather than silently
-rolling over. The progress bar counts completed tasks from the explicit daily
-plan, not every urgent task that arrives during the day.
+![Write the runbook in the focus panel, with one of three checklist steps checked and direct task actions.](docs/images/task-focus.png)
 
-* **Work on today** — open tasks explicitly planned for this local calendar day.
-* **Needs attention** — other tasks due today or overdue, at DEFCON 1–2, in progress,
-  or ready for follow-up.
-* **Waiting for …** — all blocked tasks, with a reason and optional follow-up date.
-  Even urgent blocked tasks remain here, visibly flagged; the due/overdue counter
-  filters include them. Planning a blocked task still counts it in plan progress.
-* **Completed today** — initially collapsed, based on the local day of completion.
+### Urgent work stays visible
 
-Each task appears once. Choose **Focus on this task** to highlight one actionable
-task and expose its checklist. Completion offers a possible next task without
-starting it automatically. Focus is saved per device; plan dates, blocker reasons
-and follow-up dates live with the task and travel with JSON backups.
+**Needs attention** collects other tasks that are due, overdue, at DEFCON 1–2,
+in progress or ready for follow-up. It stays separate from your deliberate plan,
+so incoming work does not silently expand it. Today counters filter the list;
+**Undo** reverses your last Today task edit in this session.
 
-Rows offer direct start/resume, completion, planning, priority, details and
-checklist actions. Tab reaches every control; arrow keys move between task rows,
-Enter opens the focused row, and the usual status/DEFCON keys still work.
-Completing a row moves keyboard focus to the next available row. **Undo** or
-<kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Z</kbd> reverses the last Today task edit in this
-session. It preserves unrelated edits and refuses to overwrite changed fields.
-It is not a general history for deletion, imports or board drag-and-drop, and it
-does not replace a text field's native undo.
+![Work on today beside Needs attention, separating a planned task from other urgent work.](docs/images/today-attention.png)
 
-Search (including project names, blocker reasons and checklist text) and DEFCON
-filters apply to Today. Header counts and plan progress remain scoped to the
-selected projects, independent of those list filters. Dates refresh at local
-midnight and when returning to the tab. Both desktop and mobile layouts preserve
-full task text and honor reduced-motion preferences.
+### Blockers with a next step
 
-Existing boards load with empty planning and follow-up fields; no manual migration
-is needed. After updating, reload all open clients before editing: older versions
-do not preserve these new fields when saving a board.
+Record what a task is **Waiting for** and set an optional follow-up date. Blocked
+tasks stay together in Today, with overdue, urgent and follow-up flags visible.
+**Resume work** moves a cleared task back into progress.
 
-### A density switch that actually earns its keep
+![A blocked firewall task with its reason, overdue and urgent flags, a due follow-up and a Resume work action.](docs/images/waiting.png)
 
-Press <kbd>d</kbd> for compact mode, and narrow the Done column to just its
-count — the working columns get the width instead.
+### Priority and idle time at a glance
 
-<div align="center">
-<img src="docs/images/compact.png" alt="The same board in compact density with the command deck collapsed and the Done column narrowed to a bare count, fitting the same five project lanes into noticeably less vertical space" width="100%">
-</div>
+DEFCON runs from **1 — now** (red) through **2 — critical** (orange),
+**3 — important** (yellow), **4 — normal** (green) to **5 — someday** (blue).
+Urgent tasks rise within their column automatically, or you can choose manual
+ordering. The optional **Alarm** sounds when a task reaches DEFCON 1.
 
-### Priorities as DEFCON levels
+Violet aging chips flag tasks unchanged for at least **3 days in In Progress**
+or **2 days in Blocked**. Priority tells you what matters; aging shows what has
+stopped moving.
 
-Because "high / medium / low" never survives contact with ten projects.
+![In Progress and Blocked columns showing orange and red priorities, a past due date, and violet four-day and six-day aging chips.](docs/images/priorities.png)
 
-| Level | Colour | Code word | Meaning |
-| :---: | --- | --- | --- |
-| **1** | 🟥 red | `COCKED PISTOL` | now |
-| **2** | 🟧 orange | `FAST PACE` | critical |
-| **3** | 🟨 yellow | `ROUND HOUSE` | important |
-| **4** | 🟩 green | `DOUBLE TAKE` | normal |
-| **5** | 🟦 blue | `FADE OUT` | someday |
+### Capture a task in one line
 
-These are the official signal colours of the scale, used verbatim rather than
-toned down to fit the UI — that contrast *is* the feature.
+Click **+ Add task** or press <kbd>n</kbd>. Type `Review !2 @tomorrow` and press
+Enter to create a task with DEFCON 2 and tomorrow's due date. German and English
+date tokens work in either interface language; see the
+[full quick-add syntax](docs/usage.md#quick-add-syntax).
 
-Every card carries a coloured stripe on its left edge. Levels 1 and 2 count as
-**hot** and light up both the lane header and the command deck.
+![Quick-add in the Reporting Q4 Backlog cell, containing Review !2 @tomorrow and date-token hints.](docs/images/quick-add.png)
 
-Urgency needs no housekeeping: with task sorting on `DEFCON`, a task that gets
-promoted rises to the top of its cell by itself. Switch to `MANUAL` if you would
-rather order cards by hand. A fresh DEFCON 1 may also make a noise — one click on
-the `ALARM` chip silences it for good on that device.
+### Make room for more projects
 
-### Keyboard-first
+Switch to **Compact** with <kbd>d</kbd>, collapse the project overview or individual
+lanes, and enable **Slim Done** to give working columns more space. Task titles
+keep wrapping in both densities.
 
-| Key | Action |
+![Compact board with three project lanes, collapsed overview and the Done column reduced to counts.](docs/images/compact.png)
+
+### Keyboard access and small screens
+
+Use <kbd>Tab</kbd> to select tasks, <kbd>Enter</kbd> to open them,
+<kbd>1</kbd>–<kbd>5</kbd> to change status and <kbd>Shift</kbd> + a number to change
+DEFCON. Keyboard drag-and-drop and Today row navigation are supported; press
+<kbd>?</kbd> for help or read the [shortcut reference](docs/usage.md#keyboard-first).
+
+On a phone, search and Today stay within reach while **View & filters** holds
+secondary controls. Today stacks into one column; the board scrolls sideways
+with its project rail kept visible.
+
+<img src="docs/images/mobile.png" alt="Mobile Today view with search, View and filters, project selection, counters and daily plan progress" width="390">
+
+### Find, filter and keep your work
+
+| Feature | What it does |
 | --- | --- |
-| <kbd>Tab</kbd> / <kbd>Shift</kbd> + <kbd>Tab</kbd> | focus and select a card |
-| <kbd>Enter</kbd> | open the focused card |
-| <kbd>Space</kbd>, arrow keys, <kbd>Space</kbd> | pick up, move and drop a card; <kbd>Escape</kbd> cancels |
-| <kbd>1</kbd>–<kbd>5</kbd> | move the selected task to Backlog / Todo / In Progress / Blocked / Done |
-| <kbd>Shift</kbd> + <kbd>1</kbd>–<kbd>5</kbd> | set its DEFCON level |
-| <kbd>t</kbd> | toggle the Today list across all projects |
-| <kbd>n</kbd> | new task in the first visible project |
-| <kbd>p</kbd> | new project |
-| <kbd>e</kbd> | open the selected task |
-| <kbd>x</kbd> | toggle the selected task Done ⇄ Todo |
-| <kbd>Backspace</kbd> / <kbd>Delete</kbd> | delete the selected task (with a confirmation) |
-| <kbd>/</kbd> | jump to search |
-| <kbd>c</kbd> | collapse / expand all lanes |
-| <kbd>d</kbd> | toggle density |
-| <kbd>?</kbd> | help |
-| <kbd>Escape</kbd> | backs out of quick-add → selection → search → filter → focus → Today, in that order |
+| Search and filters | Search task titles and notes; Today also searches project names, checklist text and blocker reasons. Combine search with DEFCON filters and project focus. |
+| Project details | Keep a description, colour and deadline with each project; sort lanes by deadline or your own order. |
+| Task details | Keep notes, due dates, checklists, planning dates and follow-ups with the task. |
+| English and German | Switch the complete interface with **Language**; dates follow the selected language. Your own content stays as written. |
+| Local ownership | The local server saves one JSON board shared by your browsers, with automatic backups and stale-write protection. |
+| Export and import | Download a JSON backup, then import it into another installation or bring work out of the browser demo. |
+| Per-device preferences | Density, language, sorting and focus stay on the device; task data travels with your board. |
+| Browser fallback | If the server is unavailable, work can stay in browser storage; connection retries recover automatically until you edit locally. |
 
-With the mouse: drag cards between columns, between projects, or to reorder
-within a column. Click selects and double-click opens. Empty cells always show
-`+ Add task`, so a new project has a visible starting point. On touch devices,
-add buttons stay visible in populated cells too.
-
-Tabbing to a card selects it, so task shortcuts act on the focused card.
-Shift + number works with symbol-producing keyboard layouts and the numeric
-keypad. Dialogs focus the first input, keep keyboard focus inside while open,
-and return it to the opening control when that control is still present.
-
-### Small screens
-
-At widths up to 600 px, the project overview starts collapsed independently of
-your saved desktop setting. Search and Today stay directly accessible; open
-**View & filters** for DEFCON filters, density, sorting, language and other view
-options. Active DEFCON filters are counted on that button. Both disclosures
-can be opened without changing the desktop overview preference. Scroll the
-board sideways to reach the remaining columns; the project rail stays visible.
-
-### Quick-add syntax
-
-Type the whole task in one line:
-
-```
-Open firewall ticket !2 @tomorrow
-```
-
-* `!1` … `!5` sets the DEFCON level.
-* `@today`, `@tomorrow`, `@mon`…`@sun`, `@+3d`, `@+2w`, `@2026-09-20`, `@20.09.`,
-  `@20.09.2027` set the due date. German aliases (`@heute`, `@morgen`, `@fr`, …)
-  work too.
-* Anything that does not parse as a token simply stays in the title — so an
-  e-mail address or a stray `!` never gets swallowed.
+Read the [user guide](docs/usage.md) for exact planning, focus and undo behavior,
+or [data and backups](#where-your-data-lives) for persistence and recovery.
 
 ## Where your data lives
 
