@@ -2,6 +2,8 @@
 
 # ▲ DEFCON 1
 
+<img src="docs/images/hero.png" alt="DEFCON 1 — Many projects. One clear view. A mission-control illustration of parallel project lanes and five colour-coded priority levels. Local. Login-free. Yours." width="100%">
+
 **A local, login-free task board for the ten projects you are juggling at once.**
 
 One swimlane per project · five status columns · priorities as DEFCON levels ·
@@ -15,8 +17,6 @@ one JSON file on your disk.
 [![CI](https://github.com/andregasser/defcon1/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/andregasser/defcon1/actions/workflows/ci.yml)
 ![Server dependencies](https://img.shields.io/badge/server%20deps-0-ff9f0a)
 ![No cloud](https://img.shields.io/badge/cloud-none-ff453a)
-
-<img src="docs/images/board.png" alt="Three project swimlanes across Backlog, Todo, In Progress, Blocked and Done, with task priorities, deadlines and checklist progress" width="100%">
 
 </div>
 
@@ -99,6 +99,8 @@ covers the detailed rules and shortcuts.
 Every project gets a swimlane across the same five status columns. Drag tasks
 between columns or projects; sticky headings and independently scrolling cells
 keep the board readable as it grows.
+
+![Three project swimlanes across Backlog, Todo, In Progress, Blocked and Done, with task priorities, deadlines and checklist progress.](docs/images/board.png)
 
 The **project overview** adds deadlines, progress and counts of running, blocked,
 urgent, overdue and stalled tasks. Click a tile to focus one project, or select

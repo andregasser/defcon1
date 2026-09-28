@@ -1,6 +1,7 @@
 # Repository media
 
-The README uses focused screenshots of the real app, captured on 28 September
+The README opens with an original mission-control hero illustration, followed
+by focused screenshots of the real app, captured on 28 September
 2026 from `22d3cb9` (the Today workspace in PR #9). Each image shows one feature;
 `board.png` supplies the overall swimlane context. The old full-window screenshots
 and animated walkthrough have been replaced by this tour and the interactive demo.
@@ -14,6 +15,8 @@ full-resolution browser captures and stored as lossless PNGs.
 
 | File | Dimensions | Subject |
 | --- | --- | --- |
+| `hero.png` | 1600 × 800 | Mission-control illustration with parallel lanes and DEFCON priorities |
+| `hero.svg` | 1600 × 800 | Editable vector source for the hero illustration |
 | `board.png` | 1280 × 364 | Three project lanes and all five status columns |
 | `project-overview.png` | 632 × 250 | Project descriptions, deadlines, progress and counters |
 | `today-plan.png` | 1156 × 244 | Today counters and one of three planned tasks completed |
@@ -59,6 +62,20 @@ forward together. Keep the real UI, official DEFCON colours and natural text
 wrapping. Verify the final files visually (not only the browser preview), check
 all README image links, and keep each image below 1 MB. The root README provides
 alt text and a short explanation for every screenshot.
+
+## Hero illustration
+
+`hero.svg` is the self-contained source for `hero.png`. It uses original vector
+shapes, system typography, a dark grid and the five official DEFCON colours.
+The tilted board and floating priority card are a brand illustration, not an
+app screenshot. The real board remains visible in the README's feature tour.
+
+Edit the SVG to change the composition or copy, then export it to a 1600 × 800
+PNG with an SVG renderer. The current PNG was rendered with Sharp, using Arial
+on macOS. Sharp is an authoring tool only, not a project dependency. Keep the
+PNG below 1 MB and inspect it at full size and at 800 pixels wide before
+replacing it. The README embeds the PNG for consistent typography across viewers;
+the SVG includes its own accessible title and description.
 
 ## Social preview and licensing
 
