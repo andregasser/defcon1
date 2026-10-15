@@ -42,6 +42,7 @@ interface Props {
   onToggleToday: () => void
   onExport: () => void
   onImport: () => void
+  onRecovery: () => void
   onHelp: () => void
 }
 
@@ -72,6 +73,7 @@ export function TopBar({
   onToggleToday,
   onExport,
   onImport,
+  onRecovery,
   onHelp,
 }: Props) {
   const t = useT()
@@ -151,6 +153,7 @@ export function TopBar({
         <button type="button" className="btn sm" onClick={onImport} title={t.topbar.importTitle}>
           {t.topbar.import}
         </button>
+        <button type="button" className="btn sm" onClick={onRecovery}>{t.topbar.recovery}</button>
         <button type="button" className="btn icon help-button" onClick={onHelp} title={t.topbar.helpTitle}>
           ?
         </button>

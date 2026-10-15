@@ -56,6 +56,7 @@ export const de = {
   },
 
   topbar: {
+    recovery: 'Wiederherstellung',
     viewOptions: 'Ansicht & Filter',
     alertTitle: (level: Defcon, code: string) =>
       `Dringendste offene Task: DEFCON ${level} — ${code}`,
@@ -392,10 +393,38 @@ export const de = {
     storage: (where: string) => `Speicherort: ${where}`,
   },
 
+  recovery: {
+    title: 'Board wiederherstellen',
+    intro: 'Wähle eine Kopie zum Prüfen oder Exportieren. Wiederherstellen ersetzt alle Projekte und Tasks des aktuellen Boards. Das aktuelle Board bleibt als weitere Wiederherstellungskopie erhalten.',
+    browser: 'Browser-Kopien',
+    server: 'Server-Sicherungen',
+    browserCopy: 'Browser-Kopie',
+    serverCopy: 'Server-Sicherung',
+    loading: 'Wiederherstellungskopien werden geladen…',
+    unavailable: 'Server-Sicherungen konnten nicht geladen werden. Browser-Kopien sind weiterhin verfügbar.',
+    empty: 'Hier sind keine Wiederherstellungskopien vorhanden.',
+    select: 'Wähle eine Kopie, um ihre Projekte und Tasks anzusehen.',
+    counts: (projects: number, tasks: number) => `${projects} Projekte · ${tasks} Tasks`,
+    reason: { pending: 'Ungesicherte Arbeit', conflict: 'Vor einem Konflikt', saveFailed: 'Nach einem Speicherfehler', beforeRestore: 'Vor dem Ersetzen' },
+    preview: 'Vorschau der Kopie',
+    confirm: 'Ich verstehe, dass das gesamte aktuelle Board ersetzt wird.',
+    restore: 'Gesamtes Board wiederherstellen',
+    restoring: 'Wird wiederhergestellt…',
+    failed: 'Das Board konnte nicht wiederhergestellt werden. Das aktuelle Board hat sich möglicherweise geändert. Prüfe es und aktualisiere die Wiederherstellung vor einem neuen Versuch.',
+    refresh: 'Wiederherstellung aktualisieren',
+    retry: 'Speichern erneut versuchen',
+    review: 'Kopien prüfen',
+    exportCopy: 'Diese Kopie exportieren',
+    exportPending: 'Wiederherstellungskopie exportieren',
+    durability: 'Einige Wiederherstellungskopien konnten in diesem Browser nicht gespeichert werden. Exportiere sie jetzt; beim Schliessen dieser Seite können sie verloren gehen.',
+    targetUnavailable: 'Das aktuelle Board konnte nicht geprüft werden. Aktualisiere die Wiederherstellung vor dem Wiederherstellen.',
+  },
+
   notice: {
+    recoveryRequired: 'Das Server-Board ist unlesbar und wurde bewahrt. Öffne die Wiederherstellung, um bewusst eine Kopie wiederherzustellen.',
     browserSaveFailed: 'Der Browser konnte das Board nicht speichern. Sichere deine Änderungen mit Export, bevor du die Seite schliesst.',
     conflict:
-      'Board wurde in einem anderen Browser geändert — die neuere Version ist jetzt geladen.',
+      'Das Board wurde in einem anderen Browser geändert. Die neuere Version ist geladen; deine lokale Arbeit findest du in der Wiederherstellung.',
     migrated: 'Board aus dem Browser-Speicher übernommen und in data/board.json gesichert.',
     saveFailed: (detail: string) => `Speichern fehlgeschlagen: ${detail}`,
   },

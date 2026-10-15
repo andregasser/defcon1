@@ -213,8 +213,25 @@ seven days of inactivity on `file://` pages. So the server holds the truth and
 every browser talks to it.
 
 * **Conflicts** — every save carries a `rev` counter. Write with a stale
-  revision and you get HTTP 409; the board adopts the server state and tells you
-  so in the status line.
+  revision and you get HTTP 409; the board preserves your latest local work in
+  **Recovery** before adopting the server state. A conflicted write is never
+  retried over the winning board automatically.
+* **Save failures** — pending edits are copied into separate browser recovery
+  storage immediately, including edits made during an in-flight save. Failed
+  saves retry at most every 4 seconds; **Retry saving** also retries explicitly.
+  Recovery copies survive a reload when browser storage works, but are never
+  silently imported into the live board.
+* **Restore a copy** — open **Recovery** in the toolbar or a failure notice.
+  Inspect browser copies and server backups, export a selected copy, or confirm
+  replacement of the complete board. The current board is preserved first and
+  the server revision is still checked. The browser keeps up to 10 copies and
+  deduplicates identical consecutive content. If browser storage is full or
+  blocked, copies remain in memory and a warning asks you to export them before
+  closing the page.
+* **Unreadable board file** — normal saves are blocked instead of overwriting
+  the damaged file with an empty board. Recovery requires an explicit restore;
+  the original bytes are retained under `data/backups/unreadable-*.json` and are
+  not pruned with the normal backups.
 * **Second browser** — the board polls every 4 seconds, so someone else's
   changes just show up.
 * **Crash safety** — writes go through a temp file plus `rename`, so a crash can
@@ -222,13 +239,19 @@ every browser talks to it.
   `data/backups/` (the last 20 are kept).
 * **No server?** — the frontend falls back to localStorage and says
   *"this browser only"* in the top right. Start the server later and an existing
-  localStorage board is migrated over once.
+  localStorage board is migrated over once if the server is empty and no local
+  edit has occurred. Once you edit browser-only, automatic reconnection stops
+  for that session so it cannot replace your work.
 * **By hand** — `Export` writes a JSON file, `Import` reads it back. It is one
   process and one file, so you are free to copy, version, or sync
   `data/board.json` yourself.
 * **Somewhere else** — `DEFCON1_DATA_DIR` moves the file out of the checkout
   entirely, which is worth doing; see
   [Keeping your board out of the checkout](#keeping-your-board-out-of-the-checkout).
+
+Recovery copies use `defcon1.recovery.v1`; the public demo uses a separate
+`defcon1.demo.recovery.v1` key. These copies are per-browser and do not replace
+external JSON exports or the server backups.
 
 View settings (density, sort order, collapsed lanes, focus) deliberately stay in
 localStorage — how you *look* at the board is per-device; the tasks are not.

@@ -48,6 +48,7 @@ export const en: Dict = {
   },
 
   topbar: {
+    recovery: 'Recovery',
     viewOptions: 'View & filters',
     alertTitle: (level: Defcon, code: string) =>
       `Most urgent open task: DEFCON ${level} — ${code}`,
@@ -380,9 +381,37 @@ export const en: Dict = {
     storage: (where: string) => `Storage: ${where}`,
   },
 
+  recovery: {
+    title: 'Recover a board',
+    intro: 'Select a copy to inspect or export. Restoring replaces every project and task on the current board. The current board is kept as another recovery copy.',
+    browser: 'Browser copies',
+    server: 'Server backups',
+    browserCopy: 'Browser copy',
+    serverCopy: 'Server backup',
+    loading: 'Loading recovery copies…',
+    unavailable: 'Server backups could not be loaded. Browser copies are still available.',
+    empty: 'No recovery copies available here.',
+    select: 'Select a copy to preview its projects and tasks.',
+    counts: (projects: number, tasks: number) => `${projects} projects · ${tasks} tasks`,
+    reason: { pending: 'Unsaved work', conflict: 'Before a conflict', saveFailed: 'After a save failure', beforeRestore: 'Before replacement' },
+    preview: 'Copy preview',
+    confirm: 'I understand that this replaces the complete current board.',
+    restore: 'Restore complete board',
+    restoring: 'Restoring…',
+    failed: 'The board could not be restored. The current board may have changed. Review it and refresh before trying again.',
+    refresh: 'Refresh recovery',
+    retry: 'Retry saving',
+    review: 'Review copies',
+    exportCopy: 'Export this copy',
+    exportPending: 'Export recovery copy',
+    durability: 'Some recovery copies could not be saved in this browser. Export them now; they may be lost when this page closes.',
+    targetUnavailable: 'The current board could not be checked. Refresh recovery before restoring.',
+  },
+
   notice: {
+    recoveryRequired: 'The server board is unreadable and has been preserved. Open Recovery to deliberately restore a copy.',
     browserSaveFailed: 'The browser could not save the board. Use Export to keep your changes before closing this page.',
-    conflict: 'The board changed in another browser — the newer version is loaded now.',
+    conflict: 'The board changed in another browser. The newer version is loaded; your local work is available in Recovery.',
     migrated: 'Board taken over from this browser’s storage and saved to data/board.json.',
     saveFailed: (detail: string) => `Saving failed: ${detail}`,
   },

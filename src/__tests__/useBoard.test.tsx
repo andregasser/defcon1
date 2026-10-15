@@ -13,7 +13,8 @@ import type { BoardData, Project } from '../types'
  * getting it wrong looks exactly like data loss to the person watching.
  */
 
-vi.mock('../lib/storage', () => ({
+vi.mock('../lib/storage', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../lib/storage')>(),
   fetchState: vi.fn(),
   putState: vi.fn(async () => ({ ok: true, rev: 1 })),
   loadLocalData: vi.fn(),
@@ -41,6 +42,7 @@ async function settle() {
 
 beforeEach(() => {
   vi.useFakeTimers()
+  localStorage.clear()
   remote.mockReset()
   local.mockReset()
   local.mockReturnValue(null)

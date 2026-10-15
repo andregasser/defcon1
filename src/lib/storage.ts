@@ -7,7 +7,7 @@ import {
   STATUS_IDS,
 } from '../constants'
 import { detectLang, isLang } from '../i18n/lang'
-import type { BoardData, ChecklistItem, Defcon, Prefs, Project, Status, Task } from '../types'
+import type { BoardData, ChecklistItem, Defcon, Prefs, Project, Status, Task, ServerBackupSummary } from '../types'
 import { uid } from './board'
 import { nowISO, parseISODate, todayISO } from './date'
 import { isBrowserDemo } from './runtime'
@@ -23,6 +23,8 @@ export interface RemoteState {
   rev: number
   data: BoardData
   updatedAt?: string | null
+  recoveryRequired?: boolean
+  recoveryToken?: string
 }
 
 export type PutResult =
@@ -138,20 +140,29 @@ export function normalizeData(raw: unknown): BoardData {
 export async function fetchState(): Promise<RemoteState | null> {
   try {
     const response = await fetch('/api/state', { cache: 'no-store' })
-    if (!response.ok) return null
     const payload = (await response.json()) as RemoteState
-    return { rev: Number(payload.rev) || 0, data: normalizeData(payload.data), updatedAt: payload.updatedAt }
+    if (!response.ok && !(response.status === 503 && payload.recoveryRequired)) return null
+    return { ...payload, rev: Number(payload.rev) || 0, data: normalizeData(payload.data) }
   } catch {
     return null
   }
 }
 
 export async function putState(rev: number, data: BoardData): Promise<PutResult> {
+  return writeRemote('/api/state', 'PUT', { rev, data })
+}
+
+export async function restoreState(rev: number, data: BoardData, recoveryToken?: string): Promise<PutResult> {
+  return writeRemote('/api/restore', 'POST', { rev, data, recoveryToken })
+}
+
+async function writeRemote(url: string, method: string, payload: { rev: number; data: BoardData; recoveryToken?: string }): Promise<PutResult> {
+  const { rev } = payload
   try {
-    const response = await fetch('/api/state', {
-      method: 'PUT',
+    const response = await fetch(url, {
+      method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rev, data }),
+      body: JSON.stringify(payload),
     })
 
     if (response.status === 409) {
@@ -159,7 +170,7 @@ export async function putState(rev: number, data: BoardData): Promise<PutResult>
       return {
         ok: false,
         conflict: true,
-        state: { rev: Number(payload.rev) || 0, data: normalizeData(payload.data) },
+        state: { ...payload, rev: Number(payload.rev) || 0, data: normalizeData(payload.data) },
       }
     }
     if (!response.ok) {
@@ -167,8 +178,8 @@ export async function putState(rev: number, data: BoardData): Promise<PutResult>
       return { ok: false, conflict: false, error: payload.error ?? `HTTP ${response.status}` }
     }
 
-    const payload = (await response.json()) as { rev: number }
-    return { ok: true, rev: Number(payload.rev) || rev + 1 }
+    const saved = (await response.json()) as { rev: number }
+    return { ok: true, rev: Number(saved.rev) || rev + 1 }
   } catch (error) {
     return { ok: false, conflict: false, error: (error as Error).message }
   }
@@ -249,4 +260,20 @@ export function parseBackup(text: string): BoardData {
     throw new Error(EMPTY_BACKUP)
   }
   return normalized
+}
+
+export async function fetchBackups(): Promise<ServerBackupSummary[]> {
+  const response = await fetch('/api/backups', { cache: 'no-store' })
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  const payload = await response.json() as { backups: ServerBackupSummary[] }
+  if (!Array.isArray(payload.backups)) throw new Error('Invalid backup list')
+  return payload.backups
+}
+
+export async function fetchBackup(id: string): Promise<BoardData> {
+  const response = await fetch(`/api/backups/${encodeURIComponent(id)}`, { cache: 'no-store' })
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  const payload = await response.json() as RemoteState
+  if (!Array.isArray(payload.data?.projects) || !Array.isArray(payload.data?.tasks)) throw new Error('Invalid backup')
+  return normalizeData(payload.data)
 }

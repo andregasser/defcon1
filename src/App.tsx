@@ -18,6 +18,7 @@ import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { Board } from './components/Board'
 import { CommandDeck } from './components/CommandDeck'
 import { DemoBanner } from './components/DemoBanner'
+import { RecoveryDialog } from './components/RecoveryDialog'
 import { HelpDialog } from './components/HelpDialog'
 import { ProjectDialog } from './components/ProjectDialog'
 import { TaskCardPreview } from './components/TaskCard'
@@ -83,6 +84,7 @@ export default function App() {
   const [taskDialogId, setTaskDialogId] = useState<string | null>(null)
   const [projectDialogId, setProjectDialogId] = useState<string | null | undefined>(undefined)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [recoveryOpen, setRecoveryOpen] = useState(false)
   const [todayOpen, setTodayOpen] = useState(false)
   const day = useTodayDate()
   const [lastUndo, setLastUndo] = useState<TodayUndo | null>(null)
@@ -222,7 +224,7 @@ export default function App() {
   const cellsRef = useRef(cells)
   cellsRef.current = cells
 
-  const dialogOpen = taskDialogId !== null || projectDialogId !== undefined || helpOpen
+  const dialogOpen = taskDialogId !== null || projectDialogId !== undefined || helpOpen || recoveryOpen
 
   useEffect(() => {
     board.setSyncPaused(dialogOpen || activeId !== null || quickAddCell !== null)
@@ -699,18 +701,34 @@ export default function App() {
           onToggleToday={() => setTodayOpen((current) => !current)}
           onExport={() => downloadBackup(data)}
           onImport={() => importRef.current?.click()}
+          onRecovery={() => setRecoveryOpen(true)}
           onHelp={() => setHelpOpen(true)}
         />
 
         {board.notice && (
           <div className="notice">
             <span>{noticeText}</span>
+            {notice?.kind !== 'migrated' && <button type="button" className="btn sm" onClick={() => setRecoveryOpen(true)}>{t.recovery.review}</button>}
+            {(notice?.kind === 'saveFailed' || notice?.kind === 'browserSaveFailed' || (notice?.kind === 'conflict' && board.saveState === 'error')) && <button type="button" className="btn sm" disabled={board.saveState === 'saving'} onClick={() => void board.retrySave()}>{t.recovery.retry}</button>}
+            {board.recoverySnapshots[0] && notice?.kind !== 'migrated' && <button type="button" className="btn sm" onClick={() => downloadBackup(board.recoverySnapshots[0].data)}>{t.recovery.exportPending}</button>}
             <span className="spacer" />
             <button type="button" className="btn sm" onClick={board.clearNotice}>
               {t.actions.ok}
             </button>
           </div>
         )}
+
+        {!board.recoveryDurable && <div className="notice" role="alert">
+          <span>{t.recovery.durability}</span>
+          <button type="button" className="btn sm" onClick={() => setRecoveryOpen(true)}>{t.recovery.review}</button>
+          {board.recoverySnapshots[0] && <button type="button" className="btn sm" onClick={() => downloadBackup(board.recoverySnapshots[0].data)}>{t.recovery.exportPending}</button>}
+        </div>}
+        {recoveryOpen && <RecoveryDialog board={board} onClose={() => setRecoveryOpen(false)} onRestored={() => {
+          setLastUndo(null)
+          setTodayMessage(null)
+          setSelectedId(null)
+          setTodayFocusRequest(null)
+        }} />}
 
         {!showEmptyState && !todayOpen && (
           <CommandDeck

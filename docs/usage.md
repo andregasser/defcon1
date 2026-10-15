@@ -158,3 +158,44 @@ Open firewall ticket !2 @tomorrow
   work too.
 * Anything that does not parse as a token simply stays in the title — so an
   e-mail address or a stray `!` never gets swallowed.
+
+## Recovering unsaved work and older boards
+
+Open **Recovery** from the toolbar, or **Review copies** in a conflict or save
+failure notice. Browser copies include unsaved work from an earlier page load,
+the latest local board before a conflict, failed saves, and the board before a
+replacement. Server backups are the previous board files saved automatically by
+the local server. The browser demo has its own recovery history and never calls
+the server.
+
+Select a copy to see its origin, timestamp, project/task counts, complete task
+titles, notes, checklist entries, deadlines, planning dates and blocker reasons.
+**Export this copy** downloads exactly that copy, including local work that
+differs from the currently displayed board.
+To restore, check the full-board replacement confirmation and choose **Restore
+complete board**. This replaces all projects and tasks; it does not merge them.
+The current board is retained as another browser recovery copy, and the server
+also backs up its previous file. A newer server revision rejects the restore;
+the dialog stays open so you can inspect and export the selected copy. Close it
+to review the current board, then open Recovery again before trying another
+replacement.
+
+Failed ordinary saves retry automatically no more frequently than every four
+seconds. **Retry saving** makes an immediate attempt using the newest live
+board, serialized with any in-flight save. A conflict is different: the newer
+server board wins, and the local copy must be reviewed deliberately. Retrying
+later edits does not resolve or discard that earlier conflict.
+
+Browser recovery retains up to ten copies and combines consecutive identical
+boards. Pending work is recorded before the network request, but is never
+silently adopted on reload. Browser storage can be blocked, full, or cleared.
+If a durability warning appears, export the recovery copies immediately: their
+in-memory content will be lost when the page closes. Keep external exports for
+long-term backups.
+
+If `board.json` cannot be read, the server preserves it and blocks normal
+writes. Use Recovery to restore a browser copy or server backup deliberately.
+A reviewed recovery token prevents restoration if the damaged file changed in
+the meantime. Its original bytes are retained in `data/backups/unreadable-*.json`
+for manual inspection, outside the normal twenty-backup retention. Backup APIs
+only accept validated backup identifiers and reject malformed files and symlinks.

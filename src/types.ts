@@ -102,5 +102,28 @@ export type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 export type BoardNotice =
   | { kind: 'conflict' }
   | { kind: 'migrated' }
+  | { kind: 'recoveryRequired' }
   | { kind: 'browserSaveFailed' }
   | { kind: 'saveFailed'; detail: string }
+
+/** Kept per browser, outside the shared board and view preferences. */
+export interface RecoverySnapshot {
+  id: string
+  capturedAt: string
+  reason: 'pending' | 'conflict' | 'saveFailed' | 'beforeRestore'
+  data: BoardData
+}
+
+export interface RecoveryTarget {
+  rev: number
+  recoveryToken?: string
+  /** Guards edits made in this browser after the replacement was reviewed. */
+  generation: number
+}
+
+export interface ServerBackupSummary {
+  id: string
+  capturedAt: string
+  projects: number
+  tasks: number
+}
