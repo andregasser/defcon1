@@ -113,7 +113,11 @@ several to work across them.
 Open **Today** with <kbd>t</kbd>, then **Choose tasks** or **Plan for today** to
 build your day across projects. Planning leaves due dates alone; the progress bar
 counts completed tasks from your explicit plan. Unfinished plans stay on their
-original day until you deliberately plan them again.
+original day until you deliberately plan them again. Use the compact **Earlier
+plans** view to review unfinished work, including blocked tasks. From each row,
+plan it today, choose another valid date, or remove its plan. **Plan tomorrow**
+shows tomorrow's explicit plan and lets you choose other unfinished tasks for it.
+Changing a plan never changes the task's due date, status, or DEFCON level.
 
 ![Today counters and a daily plan with one of three planned tasks completed.](docs/images/today-plan.png)
 

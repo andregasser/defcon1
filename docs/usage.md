@@ -44,6 +44,22 @@ from previous days keep their date and can be selected again rather than silentl
 rolling over. The progress bar counts completed tasks from the explicit daily
 plan, not every urgent task that arrives during the day.
 
+Switch between **Today**, **Earlier plans**, and **Plan tomorrow** with the
+compact tabs above the workspace. Earlier plans lists unfinished tasks planned
+before the current local day, including blocked tasks. **Plan for today** moves
+one into today's plan; **Other planning date** and **Apply date** choose a valid
+calendar day; **Remove from plan** clears its plan. These actions only change
+the planning date, leaving due date, status and DEFCON unchanged. Done tasks are
+excluded from this review. Nothing rolls over automatically at midnight.
+
+Plan tomorrow displays only tasks explicitly planned for the next local day.
+**Choose tasks for tomorrow** opens other unfinished tasks, including tasks
+planned on an earlier day. A task appears once in the active view. Search,
+project and DEFCON filters apply to both planning views; **Reset filters** is
+available when a filter hides results. Switching away from Today clears its
+due / overdue / completed counter filter. Arrow keys move between the tabs.
+Planning edits support the same field-level Undo as other Today edits.
+
 * **Work on today** — open tasks explicitly planned for this local calendar day.
 * **Needs attention** — other tasks due today or overdue, at DEFCON 1–2, in progress,
   or ready for follow-up.

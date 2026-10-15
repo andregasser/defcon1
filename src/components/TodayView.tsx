@@ -1,11 +1,12 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { useLang, useT } from '../i18n'
 import { formatDate } from '../lib/date'
-import { buildTodayWorkspace } from '../lib/today'
+import { buildDayPlanning, buildTodayWorkspace, nextLocalDay } from '../lib/today'
 import type { Defcon, Project, Task } from '../types'
 import { TodayTaskRow } from './TodayTaskRow'
 
 type Filter = 'all' | 'due' | 'overdue' | 'completed'
+type Mode = 'today' | 'earlier' | 'tomorrow'
 interface Props {
   tasks: Task[]
   projects: Project[]
@@ -32,7 +33,9 @@ export function TodayView({ tasks, projects, focusedIds, day, focusTaskId, focus
   const t = useT()
   const lang = useLang()
   const [filter, setFilter] = useState<Filter>('all')
+  const [mode, setMode] = useState<Mode>('today')
   const [choosing, setChoosing] = useState(false)
+  const [choosingTomorrow, setChoosingTomorrow] = useState(false)
   const [completedOpen, setCompletedOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const previousRows = useRef<string[]>([])
@@ -41,6 +44,8 @@ export function TodayView({ tasks, projects, focusedIds, day, focusTaskId, focus
   const projectMap = new Map(projects.map((project) => [project.id, project]))
   const scoped = tasks.filter((task) => focusedIds.size === 0 || focusedIds.has(task.projectId))
   const workspace = buildTodayWorkspace(scoped, day)
+  const planning = buildDayPlanning(scoped, day)
+  const tomorrow = nextLocalDay(day)
   const activeTasks = scoped.filter((task) => task.status !== 'done')
   const counts = {
     due: activeTasks.filter((task) => task.due === day).length,
@@ -59,6 +64,12 @@ export function TodayView({ tasks, projects, focusedIds, day, focusTaskId, focus
   const groups = [workspace.planned, workspace.attention, workspace.waiting]
   const next = [...workspace.planned, ...workspace.attention].find((task) => task.status !== 'blocked' && matches(task))
   const hasFilters = filter !== 'all' || query.trim() !== '' || defconFilter.size > 0
+  const changeMode = (nextMode: Mode) => {
+    setFilter('all')
+    setMode(nextMode)
+  }
+  const fallbackFocus = () => (rootRef.current?.querySelector<HTMLElement>('.today-choose') ??
+    rootRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]'))?.focus()
   const visibleRows = () => Array.from(rootRef.current?.querySelectorAll<HTMLElement>('[data-today-task]') ?? [])
     .filter((row) => !row.closest('details:not([open])'))
 
@@ -68,7 +79,7 @@ export function TodayView({ tasks, projects, focusedIds, day, focusTaskId, focus
       handledRequest.current = focusRequest
       const target = rows.find((row) => row.dataset.todayTask === focusRequest.id)
       if (target) target.focus()
-      else rootRef.current?.querySelector<HTMLButtonElement>('.today-choose')?.focus()
+      else fallbackFocus()
     }
     const id = lastFocused.current
     // Regrouping can remove the focused row (completion) or remount it (planning).
@@ -78,14 +89,14 @@ export function TodayView({ tasks, projects, focusedIds, day, focusTaskId, focus
       const index = previousRows.current.indexOf(id)
       const target = same ?? rows[Math.min(Math.max(index, 0), rows.length - 1)]
       if (target) target.focus()
-      else rootRef.current?.querySelector<HTMLButtonElement>('.today-choose')?.focus()
+      else fallbackFocus()
     }
     previousRows.current = rows.map((row) => row.dataset.todayTask!)
   })
 
-  const renderRow = (task: Task, focused = false) => <TodayTaskRow
+  const renderRow = (task: Task, focused = false, planningMode?: 'earlier' | 'tomorrow' | 'candidate') => <TodayTaskRow
     key={task.id} task={task} project={projectMap.get(task.projectId)} day={day}
-    selected={task.id === selectedId} focused={focused} onSelect={onSelect} onOpen={onOpen}
+    selected={task.id === selectedId} focused={focused} planningMode={planningMode} tomorrow={tomorrow} onSelect={onSelect} onOpen={onOpen}
     onFocusTask={onFocusTask} onUpdate={onUpdate}
   />
   const renderGroup = (id: 'planned' | 'attention' | 'waiting', hint: string, all: Task[]) => {
@@ -99,6 +110,9 @@ export function TodayView({ tasks, projects, focusedIds, day, focusTaskId, focus
   }
   const completed = workspace.completed.filter(matches)
   const available = workspace.available.filter((task) => task.id !== focusTask?.id && matches(task))
+  const earlierRows = planning.earlier.filter(matches)
+  const tomorrowRows = planning.tomorrow.filter(matches)
+  const candidateRows = planning.candidates.filter(matches)
 
   return (
     <div className="today" ref={rootRef}
@@ -125,6 +139,21 @@ export function TodayView({ tasks, projects, focusedIds, day, focusTaskId, focus
           </div>
         </details>
       </header>
+      <div className="today-modes" role="tablist" aria-label={t.today.planViews} onKeyDown={(event) => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+        const options: Mode[] = ['today', 'earlier', 'tomorrow']
+        const index = options.indexOf(mode)
+        const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 :
+          (index + (event.key === 'ArrowRight' ? 1 : -1) + options.length) % options.length
+        event.preventDefault()
+        changeMode(options[nextIndex])
+        event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[nextIndex]?.focus()
+      }}>
+        {(['today', 'earlier', 'tomorrow'] as const).map((option) => <button key={option} type="button" role="tab"
+          aria-selected={mode === option} aria-controls={`today-panel-${option}`} tabIndex={mode === option ? 0 : -1}
+          onClick={() => changeMode(option)}>{option === 'today' ? t.today.viewToday : option === 'earlier' ? t.today.viewEarlier : t.today.viewTomorrow}</button>)}
+      </div>
+      {mode === 'today' && <div id="today-panel-today" role="tabpanel" aria-label={t.today.viewToday}>
       <div className="today-summary" role="group" aria-label={t.today.all}>
         {(['due', 'overdue', 'completed'] as const).map((key) => <button type="button" key={key} aria-pressed={filter === key}
           onClick={() => { setFilter((value) => value === key ? 'all' : key); if (key === 'completed') setCompletedOpen(true) }}>
@@ -137,8 +166,29 @@ export function TodayView({ tasks, projects, focusedIds, day, focusTaskId, focus
           {workspace.planTotal === 0 && <span>{t.today.planHint}</span>}</div>
         <button type="button" className="btn primary today-choose" aria-expanded={choosing} aria-controls="today-available" onClick={() => setChoosing((value) => !value)}>{choosing ? t.today.hideChooser : t.today.chooseTasks}</button>
       </div>
+      </div>}
       <div className="today-notice" role="status" aria-live="polite">{message}<span className="spacer" />{canUndo && <button type="button" className="btn sm" onClick={onUndo}>{t.today.undo}</button>}</div>
       {hasFilters && <div className="today-filter-note"><span>{t.today.filtersHint}</span><button type="button" className="btn sm" onClick={() => { setFilter('all'); onResetFilters() }}>{t.today.resetFilters}</button></div>}
+      {mode === 'earlier' && <section id="today-panel-earlier" className="today-planning" role="region" aria-label={t.today.viewEarlier}>
+        <h2>{t.today.viewEarlier}</h2><p>{t.today.earlierHint}</p>
+        {earlierRows.length ? earlierRows.map((task) => renderRow(task, false, 'earlier')) :
+          <p className="today-placeholder">{hasFilters ? t.today.noMatches : t.today.earlierEmpty}</p>}
+      </section>}
+      {mode === 'tomorrow' && <section id="today-panel-tomorrow" className="today-planning" role="region" aria-label={t.today.viewTomorrow}>
+        <h2>{t.today.viewTomorrow}</h2><p>{t.today.tomorrowDate(formatDate(tomorrow, lang))}</p>
+        <div className="today-planning-list">
+          {tomorrowRows.length ? tomorrowRows.map((task) => renderRow(task, false, 'tomorrow')) :
+            <p className="today-placeholder">{hasFilters ? t.today.noMatches : t.today.tomorrowEmpty}</p>}
+        </div>
+        <button type="button" className="btn primary today-tomorrow-choose" aria-expanded={choosingTomorrow} aria-controls="today-tomorrow-candidates"
+          onClick={() => setChoosingTomorrow((value) => !value)}>{choosingTomorrow ? t.today.hideChooser : t.today.chooseTomorrow}</button>
+        {choosingTomorrow && <div id="today-tomorrow-candidates" className="today-planning-candidates">
+          <h3>{t.today.available}</h3>
+          {candidateRows.length ? candidateRows.map((task) => renderRow(task, false, 'candidate')) :
+            <p className="today-placeholder">{hasFilters ? t.today.noMatches : t.today.availableEmpty}</p>}
+        </div>}
+      </section>}
+      {mode === 'today' && <div className="today-current">
       {filter !== 'completed' && <section className="today-focus" aria-label={t.today.focus}>
         <div className="today-head"><h2>{t.today.focus}</h2><span className="today-focus-symbol" aria-hidden="true">◎</span></div>
         {focusTask ? renderRow(focusTask, true) : <div className="today-focus-empty"><p>{t.today.focusEmpty}</p>{!next && <span>{t.today.focusHint}</span>}
@@ -157,6 +207,7 @@ export function TodayView({ tasks, projects, focusedIds, day, focusTaskId, focus
         <summary>{t.today.completedCount(completed.length)}</summary>
         <div hidden={!completedOpen}>{completed.length ? completed.map((task) => renderRow(task)) : <p>{t.today.noMatches}</p>}</div>
       </details>
+      </div>}
       <p className="today-foot">{t.today.keyboard}</p>
     </div>
   )

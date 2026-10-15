@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
 import { DEFCONS, STATUS_BY_ID } from '../constants'
 import { useLang, useT } from '../i18n'
-import { daysUntil, formatDate, parseISODate } from '../lib/date'
+import { daysUntil, formatDate, parseISODate, todayISO } from '../lib/date'
 import { vars } from '../lib/css'
 import type { Defcon, Project, Task } from '../types'
 import { DefconBadge } from './DefconBadge'
@@ -12,16 +12,20 @@ interface Props {
   day: string
   selected: boolean
   focused: boolean
+  planningMode?: 'earlier' | 'tomorrow' | 'candidate'
+  tomorrow?: string
   onSelect: (id: string) => void
   onOpen: (id: string) => void
   onFocusTask: (id: string | null) => void
   onUpdate: (id: string, patch: Partial<Task>) => void
 }
 
-export function TodayTaskRow({ task, project, day, selected, focused, onSelect, onOpen, onFocusTask, onUpdate }: Props) {
+export function TodayTaskRow({ task, project, day, selected, focused, planningMode, tomorrow, onSelect, onOpen, onFocusTask, onUpdate }: Props) {
   const t = useT()
   const lang = useLang()
   const [expanded, setExpanded] = useState(false)
+  const [chosenDate, setChosenDate] = useState('')
+  const [dateError, setDateError] = useState(false)
   const detailsId = useId()
   const done = task.status === 'done'
   const blocked = task.status === 'blocked'
@@ -67,9 +71,27 @@ export function TodayTaskRow({ task, project, day, selected, focused, onSelect, 
           {task.reviewOn <= day ? t.today.reviewReady : t.today.reviewOn(formatDate(task.reviewOn, lang))}
         </span>}
         {!done && task.plannedFor && task.plannedFor < day && <span>{t.today.earlierPlan(formatDate(task.plannedFor, lang))}</span>}
+        {planningMode === 'tomorrow' && task.plannedFor && <span>{t.today.plannedOn(formatDate(task.plannedFor, lang))}</span>}
       </div>
       {blocked && <p className="today-blocker">{task.blockedReason || t.today.noReason}</p>}
-      <div className="today-task-actions">
+      {planningMode ? <div className="today-task-actions today-planning-actions">
+        {planningMode === 'earlier' && <button type="button" className="btn sm" onClick={() => onUpdate(task.id, { plannedFor: day })}>{t.today.plan}</button>}
+        {planningMode === 'candidate' && tomorrow && <button type="button" className="btn sm" onClick={() => onUpdate(task.id, { plannedFor: tomorrow })}>{t.today.planTomorrow}</button>}
+        <label className="today-plan-date"><span>{t.today.chooseDate}</span>
+          <input type="date" aria-label={t.today.chooseDate} value={chosenDate} onChange={(event) => { setChosenDate(event.target.value); setDateError(false) }} />
+        </label>
+        <button type="button" className="btn sm" onClick={() => {
+          const parsed = parseISODate(chosenDate)
+          if (!parsed || todayISO(parsed) !== chosenDate) {
+            setDateError(true)
+            return
+          }
+          onUpdate(task.id, { plannedFor: chosenDate })
+        }}>{t.today.applyDate}</button>
+        {task.plannedFor && <button type="button" className="btn sm" onClick={() => onUpdate(task.id, { plannedFor: null })}>{t.today.removePlanning}</button>}
+        <button type="button" className="btn sm" onClick={() => onOpen(task.id)}>{t.today.details}</button>
+        {dateError && <span role="alert">{t.today.invalidDate}</span>}
+      </div> : <div className="today-task-actions">
         {!done && <>
           {!blocked && <button type="button" className="btn sm" aria-pressed={focused}
             onClick={() => onFocusTask(focused ? null : task.id)}>
@@ -96,7 +118,7 @@ export function TodayTaskRow({ task, project, day, selected, focused, onSelect, 
         {task.checklist.length > 0 && !focused && <button type="button" className="btn sm" aria-expanded={expanded} aria-controls={detailsId} onClick={() => setExpanded((value) => !value)}>
           {t.today.checklistProgress(stepsDone, task.checklist.length)}
         </button>}
-      </div>
+      </div>}
       {task.checklist.length > 0 && <div id={detailsId} hidden={!focused && !expanded} className="today-checklist" role="group" aria-label={t.today.checklist}>
         {task.checklist.map((step) => <label key={step.id}>
           <input type="checkbox" checked={step.done} aria-label={t.taskDialog.checkToggle(step.text)}
