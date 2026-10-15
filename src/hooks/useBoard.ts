@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { BoardData, BoardNotice, Lang, RecoverySnapshot, RecoveryTarget, SaveState, StorageMode } from '../types'
 import { createDemoData } from '../lib/board'
 import { isBrowserDemo } from '../lib/runtime'
-import { loadRecovery, prependRecovery, recoverySnapshot, saveRecovery } from '../lib/recovery'
+import { RECOVERY_LIMIT, isRecoveryStorageKey, loadRecovery, mergeRecovery, pruneRecovery, recoverySnapshot, removePendingRecovery, saveRecovery } from '../lib/recovery'
 import { fetchState, loadLocalData, normalizeData, putState, restoreState, saveLocalData } from '../lib/storage'
 
 const SAVE_DEBOUNCE_MS = 400
@@ -35,9 +35,11 @@ export function useBoard(lang: Lang = 'en'): BoardStore {
   const [notice, setNotice] = useState<BoardNotice | null>(null)
   const [recoverySnapshots, setRecoverySnapshots] = useState(loadRecovery)
   const [recoveryDurable, setRecoveryDurable] = useState(true)
-  // A pending copy from an earlier mount becomes history, never the active board.
-  const historyRef = useRef(recoverySnapshots)
+  // Only this hook's unsaved copies live in memory. Shared durable entries are
+  // re-read, never written back from a private snapshot of another tab's history.
+  const memoryRef = useRef<{ snapshot: RecoverySnapshot; supersedes: RecoverySnapshot[] }[]>([])
   const pendingRef = useRef<RecoverySnapshot | null>(null)
+  const supersededPendingRef = useRef<RecoverySnapshot[]>([])
   const dataRef = useRef(EMPTY)
   const revRef = useRef(0)
   const generationRef = useRef(0)
@@ -51,18 +53,39 @@ export function useBoard(lang: Lang = 'en'): BoardStore {
   const retryAtRef = useRef(0)
   const recoveryRequiredRef = useRef(false)
 
+  const refreshRecovery = useCallback(() => {
+    setRecoverySnapshots(mergeRecovery([
+      ...loadRecovery(), ...memoryRef.current.map((entry) => entry.snapshot),
+      ...(pendingRef.current ? [pendingRef.current] : []),
+    ]))
+  }, [])
+
   const persistRecovery = useCallback(() => {
-    const snapshots = pendingRef.current ? prependRecovery(pendingRef.current, historyRef.current) : historyRef.current
-    const durable = saveRecovery(snapshots)
-    setRecoverySnapshots(snapshots)
+    let durable = true
+    memoryRef.current = memoryRef.current.filter((entry) => {
+      if (!saveRecovery(entry.snapshot)) { durable = false; return true }
+      removePendingRecovery(entry.supersedes)
+      return false
+    })
+    if (pendingRef.current) {
+      if (saveRecovery(pendingRef.current)) {
+        removePendingRecovery(supersededPendingRef.current)
+        supersededPendingRef.current = []
+      } else durable = false
+    }
+    pruneRecovery()
+    refreshRecovery()
     setRecoveryDurable(durable)
     if (!durable) setNotice((current) => current?.kind === 'conflict' ? current : { kind: 'browserSaveFailed' })
     return durable
-  }, [])
+  }, [refreshRecovery])
 
   const capture = useCallback((next: BoardData, reason: RecoverySnapshot['reason']) => {
-    historyRef.current = prependRecovery(recoverySnapshot(next, reason), historyRef.current)
+    memoryRef.current = [...memoryRef.current, { snapshot: recoverySnapshot(next, reason), supersedes: [
+      ...supersededPendingRef.current, ...(pendingRef.current ? [pendingRef.current] : []),
+    ] }].slice(-RECOVERY_LIMIT)
     pendingRef.current = null
+    supersededPendingRef.current = []
     return persistRecovery()
   }, [persistRecovery])
 
@@ -70,7 +93,8 @@ export function useBoard(lang: Lang = 'en'): BoardStore {
     dataRef.current = next
     generationRef.current++
     dirtyRef.current = true
-    if (modeRef.current === 'local') localEditRef.current = true
+    if (modeRef.current === 'local' || modeRef.current === 'loading') localEditRef.current = true
+    if (pendingRef.current) supersededPendingRef.current.push(pendingRef.current)
     pendingRef.current = recoverySnapshot(next, 'pending')
     persistRecovery()
     setData(next)
@@ -102,6 +126,8 @@ export function useBoard(lang: Lang = 'en'): BoardStore {
           retryAtRef.current = 0
           if (dataRef.current === snapshot) {
             dirtyRef.current = false
+            removePendingRecovery([...supersededPendingRef.current, ...(pendingRef.current ? [pendingRef.current] : [])])
+            supersededPendingRef.current = []
             pendingRef.current = null
             persistRecovery()
           }
@@ -203,6 +229,14 @@ export function useBoard(lang: Lang = 'en'): BoardStore {
     }, POLL_INTERVAL_MS)
     return () => clearInterval(timer)
   }, [adopt, connect, flush])
+
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (isRecoveryStorageKey(event.key)) refreshRecovery()
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [refreshRecovery])
 
   useEffect(() => {
     // A synchronous browser copy is dependable during teardown; another PUT is

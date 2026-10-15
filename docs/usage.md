@@ -186,15 +186,21 @@ board, serialized with any in-flight save. A conflict is different: the newer
 server board wins, and the local copy must be reviewed deliberately. Retrying
 later edits does not resolve or discard that earlier conflict.
 
-Browser recovery retains up to ten copies and combines consecutive identical
-boards. Pending work is recorded before the network request, but is never
-silently adopted on reload. Browser storage can be blocked, full, or cleared.
+Browser recovery retains up to ten history copies and combines consecutive
+identical history boards. It separately retains up to ten pending copies from
+recent tabs; each tab updates or clears only the pending copies it created.
+The dialog shows the newest ten available copies and updates when another tab
+changes recovery storage. Pending work is recorded before the network request,
+but is never silently adopted on reload. Browser storage can be blocked, full,
+or cleared.
 If a durability warning appears, export the recovery copies immediately: their
 in-memory content will be lost when the page closes. Keep external exports for
 long-term backups.
 
-If `board.json` cannot be read, the server preserves it and blocks normal
-writes. Use Recovery to restore a browser copy or server backup deliberately.
+If `board.json` cannot be read, including damage after the server has started,
+the server preserves it and blocks normal writes. The primary file is checked
+for every state read and queued write. Use Recovery to restore a browser copy
+or server backup deliberately.
 A reviewed recovery token prevents restoration if the damaged file changed in
 the meantime. Its original bytes are retained in `data/backups/unreadable-*.json`
 for manual inspection, outside the normal twenty-backup retention. Backup APIs

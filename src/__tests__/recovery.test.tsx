@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event'
 import App from '../App'
 import { PREFS_KEY } from '../constants'
 import { useBoard } from '../hooks/useBoard'
+import { loadRecovery } from '../lib/recovery'
 import { todayISO } from '../lib/date'
 import { normalizeData } from '../lib/storage'
 import type { BoardData } from '../types'
@@ -262,7 +263,7 @@ it('loads and restores a server backup through the German review flow', async ()
   await user.click(within(dialog).getByRole('button', { name: 'Gesamtes Board wiederherstellen' }))
   assert.equal(screen.queryByRole('dialog'), null)
   assert.equal(writes[0].data.tasks[0].title, 'Server-Sicherung Inhalt')
-  assert.equal(JSON.parse(localStorage.getItem('defcon1.recovery.v1')!)[0].data.tasks[0].title, 'Original')
+  assert.equal(loadRecovery()[0].data.tasks[0].title, 'Original')
 })
 
 it('exports the selected recovery content rather than the winning remote board', async () => {
@@ -326,4 +327,102 @@ it('clears prior Today undo and status only after a successful full-board restor
   assert.equal(screen.queryByRole('dialog'), null)
   assert.equal(screen.queryByRole('button', { name: 'Undo' }), null)
   assert.equal(screen.queryByText('Updated: Original'), null)
+})
+
+it('retains a conflict copy after another mounted tab successfully saves', async () => {
+  put = async (payload) => {
+    if (payload.data.tasks[0].title === 'Conflicted A') {
+      remote = { rev: 3, data: board('Winner') }
+      return response(remote, 409)
+    }
+    assert.equal(payload.rev, remote.rev)
+    remote = { ...payload, rev: 4 }
+    return response({ rev: 4 })
+  }
+  const a = renderHook(() => useBoard())
+  const b = renderHook(() => useBoard())
+  await settle()
+  act(() => a.result.current.replaceAll(board('Conflicted A')))
+  await tick()
+  assert.equal(a.result.current.recoverySnapshots[0].data.tasks[0].title, 'Conflicted A')
+  await tick(4000)
+  act(() => b.result.current.replaceAll(board('Saved B')))
+  await tick()
+  a.unmount(); b.unmount()
+  const reloaded = renderHook(() => useBoard())
+  await settle()
+  assert.ok(reloaded.result.current.recoverySnapshots.some((copy) => copy.data.tasks[0]?.title === 'Conflicted A'))
+})
+
+it('does not reconnect over edits made while the initial connection was pending', async () => {
+  let finish!: (value: Response) => void
+  let first = true
+  remote = { rev: 2, data: board('Remote') }
+  vi.stubGlobal('fetch', vi.fn(async () => {
+    if (first) { first = false; return new Promise<Response>((resolve) => { finish = resolve }) }
+    return response(remote)
+  }))
+  const { result } = renderHook(() => useBoard())
+  assert.equal(result.current.mode, 'loading')
+  act(() => result.current.replaceAll(board('Edited during connect')))
+  await act(async () => finish(response(remote)))
+  assert.equal(result.current.mode, 'local')
+  assert.equal(result.current.data.tasks[0].title, 'Edited during connect')
+  await tick()
+  await tick(4000)
+  assert.equal(result.current.mode, 'local')
+  assert.equal(result.current.data.tasks[0].title, 'Edited during connect')
+})
+
+it('keeps equal-content conflict history when another tab removes its saved pending copy', async () => {
+  put = async (payload) => {
+    if (writes.length === 1) {
+      remote = { rev: 3, data: board('Winner') }
+      return response(remote, 409)
+    }
+    remote = { ...payload, rev: 4 }
+    return response({ rev: 4 })
+  }
+  const a = renderHook(() => useBoard())
+  const b = renderHook(() => useBoard())
+  await settle()
+  act(() => a.result.current.replaceAll(board('Same content')))
+  await tick()
+  await tick(4000)
+  act(() => b.result.current.replaceAll(board('Same content')))
+  await tick()
+  a.unmount(); b.unmount()
+  const reloaded = renderHook(() => useBoard())
+  await settle()
+  assert.ok(reloaded.result.current.recoverySnapshots.some((copy) => copy.reason === 'conflict' && copy.data.tasks[0]?.title === 'Same content'))
+})
+
+it('refreshes visible copies after storage events and keeps another tab pending work', async () => {
+  const a = renderHook(() => useBoard())
+  const b = renderHook(() => useBoard())
+  await settle()
+  act(() => a.result.current.replaceAll(board('Pending A')))
+  const aId = a.result.current.recoverySnapshots[0].id
+  act(() => window.dispatchEvent(new StorageEvent('storage', { key: `defcon1.recovery.v1.pending.${aId}` })))
+  assert.equal(b.result.current.recoverySnapshots[0].data.tasks[0].title, 'Pending A')
+  act(() => b.result.current.replaceAll(board('Pending B')))
+  await act(async () => b.result.current.retrySave())
+  act(() => window.dispatchEvent(new StorageEvent('storage', { key: 'defcon1.recovery.v1.pending.changed' })))
+  assert.ok(a.result.current.recoverySnapshots.some((copy) => copy.id === aId && copy.data.tasks[0].title === 'Pending A'))
+  a.unmount(); b.unmount()
+  const reloaded = renderHook(() => useBoard())
+  await settle()
+  assert.ok(reloaded.result.current.recoverySnapshots.some((copy) => copy.id === aId))
+})
+
+it('keeps new recovery copies durable when the legacy recovery value is malformed', async () => {
+  localStorage.setItem('defcon1.recovery.v1', '{ broken old recovery list')
+  const first = renderHook(() => useBoard())
+  await settle()
+  act(() => first.result.current.replaceAll(board('New durable work')))
+  assert.equal(first.result.current.recoveryDurable, true)
+  first.unmount()
+  const second = renderHook(() => useBoard())
+  await settle()
+  assert.equal(second.result.current.recoverySnapshots[0].data.tasks[0].title, 'New durable work')
 })

@@ -58,7 +58,6 @@ const MIME = {
 
 /** Serialises writes so two browsers saving at once cannot interleave. */
 let writeChain = Promise.resolve()
-let cache = null
 
 function parseState(raw) {
   const parsed = JSON.parse(raw)
@@ -69,19 +68,17 @@ function parseState(raw) {
 }
 
 async function readState() {
-  if (cache && !cache.recoveryRequired) return cache
   let raw
   try {
     raw = await fs.readFile(DATA_FILE)
-    cache = parseState(raw.toString('utf8'))
+    return parseState(raw.toString('utf8'))
   } catch (error) {
     if (error.code === 'ENOENT') return structuredClone(EMPTY_STATE)
     // Keep the original bytes. Only an explicitly reviewed restore can replace
     // this state, and its token changes whenever the damaged file changes.
-    cache = { ...structuredClone(EMPTY_STATE), recoveryRequired: true,
+    return { ...structuredClone(EMPTY_STATE), recoveryRequired: true,
       recoveryToken: createHash('sha256').update(raw ?? String(error.code)).digest('hex') }
   }
-  return cache
 }
 
 const backupId = /^board-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z?(?:-[a-f0-9-]{36})?\.json$/
@@ -139,7 +136,6 @@ async function writeState(next) {
   const tmp = `${DATA_FILE}.${process.pid}.tmp`
   await fs.writeFile(tmp, `${JSON.stringify(next, null, 2)}\n`, 'utf8')
   await fs.rename(tmp, DATA_FILE)
-  cache = next
 }
 
 /**

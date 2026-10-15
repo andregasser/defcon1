@@ -224,9 +224,11 @@ every browser talks to it.
 * **Restore a copy** — open **Recovery** in the toolbar or a failure notice.
   Inspect browser copies and server backups, export a selected copy, or confirm
   replacement of the complete board. The current board is preserved first and
-  the server revision is still checked. The browser keeps up to 10 copies and
-  deduplicates identical consecutive content. If browser storage is full or
-  blocked, copies remain in memory and a warning asks you to export them before
+  the server revision is still checked. The browser keeps up to 10 history copies
+  and 10 pending copies from recent tabs; the dialog shows the newest 10.
+  Identical consecutive history copies are combined, while each tab owns its
+  pending copy so another tab’s successful save cannot delete it. If browser
+  storage is full or blocked, copies remain in memory and a warning asks you to export them before
   closing the page.
 * **Unreadable board file** — normal saves are blocked instead of overwriting
   the damaged file with an empty board. Recovery requires an explicit restore;
@@ -249,9 +251,10 @@ every browser talks to it.
   entirely, which is worth doing; see
   [Keeping your board out of the checkout](#keeping-your-board-out-of-the-checkout).
 
-Recovery copies use `defcon1.recovery.v1`; the public demo uses a separate
-`defcon1.demo.recovery.v1` key. These copies are per-browser and do not replace
-external JSON exports or the server backups.
+Recovery copies use separate entries below `defcon1.recovery.v1.*`; the public
+demo uses `defcon1.demo.recovery.v1.*`. Existing single-key histories migrate
+automatically when a new copy is stored. These copies are per-browser and do not
+replace external JSON exports or the server backups.
 
 View settings (density, sort order, collapsed lanes, focus) deliberately stay in
 localStorage — how you *look* at the board is per-device; the tasks are not.
