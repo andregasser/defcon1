@@ -63,7 +63,7 @@ export function TodayView({ tasks, projects, focusedIds, day, focusTaskId, focus
   const focusTask = scoped.find((task) => task.id === focusTaskId && task.status !== 'done' && task.status !== 'blocked' && matches(task))
   const groups = [workspace.planned, workspace.attention, workspace.waiting]
   const next = [...workspace.planned, ...workspace.attention].find((task) => task.status !== 'blocked' && matches(task))
-  const hasFilters = filter !== 'all' || query.trim() !== '' || defconFilter.size > 0
+  const hasFilters = filter !== 'all' || query.trim() !== '' || defconFilter.size > 0 || focusedIds.size > 0
   const changeMode = (nextMode: Mode) => {
     setFilter('all')
     setMode(nextMode)
@@ -150,10 +150,14 @@ export function TodayView({ tasks, projects, focusedIds, day, focusTaskId, focus
         event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[nextIndex]?.focus()
       }}>
         {(['today', 'earlier', 'tomorrow'] as const).map((option) => <button key={option} type="button" role="tab"
+          id={`today-tab-${option}`}
           aria-selected={mode === option} aria-controls={`today-panel-${option}`} tabIndex={mode === option ? 0 : -1}
           onClick={() => changeMode(option)}>{option === 'today' ? t.today.viewToday : option === 'earlier' ? t.today.viewEarlier : t.today.viewTomorrow}</button>)}
       </div>
-      {mode === 'today' && <div id="today-panel-today" role="tabpanel" aria-label={t.today.viewToday}>
+      <div className="today-notice" role="status" aria-live="polite">{message}<span className="spacer" />{canUndo && <button type="button" className="btn sm" onClick={onUndo}>{t.today.undo}</button>}</div>
+      {hasFilters && <div className="today-filter-note"><span>{t.today.filtersHint}</span><button type="button" className="btn sm" onClick={() => { setFilter('all'); onResetFilters() }}>{t.today.resetFilters}</button></div>}
+      <div id="today-panel-today" role="tabpanel" aria-labelledby="today-tab-today" hidden={mode !== 'today'}>
+      {mode === 'today' && <>
       <div className="today-summary" role="group" aria-label={t.today.all}>
         {(['due', 'overdue', 'completed'] as const).map((key) => <button type="button" key={key} aria-pressed={filter === key}
           onClick={() => { setFilter((value) => value === key ? 'all' : key); if (key === 'completed') setCompletedOpen(true) }}>
@@ -166,29 +170,7 @@ export function TodayView({ tasks, projects, focusedIds, day, focusTaskId, focus
           {workspace.planTotal === 0 && <span>{t.today.planHint}</span>}</div>
         <button type="button" className="btn primary today-choose" aria-expanded={choosing} aria-controls="today-available" onClick={() => setChoosing((value) => !value)}>{choosing ? t.today.hideChooser : t.today.chooseTasks}</button>
       </div>
-      </div>}
-      <div className="today-notice" role="status" aria-live="polite">{message}<span className="spacer" />{canUndo && <button type="button" className="btn sm" onClick={onUndo}>{t.today.undo}</button>}</div>
-      {hasFilters && <div className="today-filter-note"><span>{t.today.filtersHint}</span><button type="button" className="btn sm" onClick={() => { setFilter('all'); onResetFilters() }}>{t.today.resetFilters}</button></div>}
-      {mode === 'earlier' && <section id="today-panel-earlier" className="today-planning" role="region" aria-label={t.today.viewEarlier}>
-        <h2>{t.today.viewEarlier}</h2><p>{t.today.earlierHint}</p>
-        {earlierRows.length ? earlierRows.map((task) => renderRow(task, false, 'earlier')) :
-          <p className="today-placeholder">{hasFilters ? t.today.noMatches : t.today.earlierEmpty}</p>}
-      </section>}
-      {mode === 'tomorrow' && <section id="today-panel-tomorrow" className="today-planning" role="region" aria-label={t.today.viewTomorrow}>
-        <h2>{t.today.viewTomorrow}</h2><p>{t.today.tomorrowDate(formatDate(tomorrow, lang))}</p>
-        <div className="today-planning-list">
-          {tomorrowRows.length ? tomorrowRows.map((task) => renderRow(task, false, 'tomorrow')) :
-            <p className="today-placeholder">{hasFilters ? t.today.noMatches : t.today.tomorrowEmpty}</p>}
-        </div>
-        <button type="button" className="btn primary today-tomorrow-choose" aria-expanded={choosingTomorrow} aria-controls="today-tomorrow-candidates"
-          onClick={() => setChoosingTomorrow((value) => !value)}>{choosingTomorrow ? t.today.hideChooser : t.today.chooseTomorrow}</button>
-        {choosingTomorrow && <div id="today-tomorrow-candidates" className="today-planning-candidates">
-          <h3>{t.today.available}</h3>
-          {candidateRows.length ? candidateRows.map((task) => renderRow(task, false, 'candidate')) :
-            <p className="today-placeholder">{hasFilters ? t.today.noMatches : t.today.availableEmpty}</p>}
-        </div>}
-      </section>}
-      {mode === 'today' && <div className="today-current">
+      <div className="today-current">
       {filter !== 'completed' && <section className="today-focus" aria-label={t.today.focus}>
         <div className="today-head"><h2>{t.today.focus}</h2><span className="today-focus-symbol" aria-hidden="true">◎</span></div>
         {focusTask ? renderRow(focusTask, true) : <div className="today-focus-empty"><p>{t.today.focusEmpty}</p>{!next && <span>{t.today.focusHint}</span>}
@@ -207,7 +189,32 @@ export function TodayView({ tasks, projects, focusedIds, day, focusTaskId, focus
         <summary>{t.today.completedCount(completed.length)}</summary>
         <div hidden={!completedOpen}>{completed.length ? completed.map((task) => renderRow(task)) : <p>{t.today.noMatches}</p>}</div>
       </details>
-      </div>}
+      </div>
+      </>}
+      </div>
+      <section id="today-panel-earlier" className="today-planning" role="tabpanel" aria-labelledby="today-tab-earlier" hidden={mode !== 'earlier'}>
+      {mode === 'earlier' && <>
+        <h2>{t.today.viewEarlier}</h2><p>{t.today.earlierHint}</p>
+        {earlierRows.length ? earlierRows.map((task) => renderRow(task, false, 'earlier')) :
+          <p className="today-placeholder">{hasFilters ? t.today.noMatches : t.today.earlierEmpty}</p>}
+      </>}
+      </section>
+      <section id="today-panel-tomorrow" className="today-planning" role="tabpanel" aria-labelledby="today-tab-tomorrow" hidden={mode !== 'tomorrow'}>
+      {mode === 'tomorrow' && <>
+        <h2>{t.today.viewTomorrow}</h2><p>{t.today.tomorrowDate(formatDate(tomorrow, lang))}</p>
+        <div className="today-planning-list">
+          {tomorrowRows.length ? tomorrowRows.map((task) => renderRow(task, false, 'tomorrow')) :
+            <p className="today-placeholder">{hasFilters ? t.today.noMatches : t.today.tomorrowEmpty}</p>}
+        </div>
+        <button type="button" className="btn primary today-tomorrow-choose" aria-expanded={choosingTomorrow} aria-controls="today-tomorrow-candidates"
+          onClick={() => setChoosingTomorrow((value) => !value)}>{choosingTomorrow ? t.today.hideChooser : t.today.chooseTomorrow}</button>
+        {choosingTomorrow && <div id="today-tomorrow-candidates" className="today-planning-candidates">
+          <h3>{t.today.available}</h3>
+          {candidateRows.length ? candidateRows.map((task) => renderRow(task, false, 'candidate')) :
+            <p className="today-placeholder">{hasFilters ? t.today.noMatches : t.today.availableEmpty}</p>}
+        </div>}
+      </>}
+      </section>
       <p className="today-foot">{t.today.keyboard}</p>
     </div>
   )

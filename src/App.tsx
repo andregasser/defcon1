@@ -785,7 +785,7 @@ export default function App() {
               message={todayMessage}
               canUndo={lastUndo !== null}
               onUndo={undoToday}
-              onResetFilters={() => { setQuery(''); setDefconFilter([]) }}
+              onResetFilters={() => { setQuery(''); setDefconFilter([]); clearFocus() }}
               onToggleProject={toggleFocus}
               onClearProjects={clearFocus}
               onSelect={setSelectedId}

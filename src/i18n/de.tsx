@@ -248,7 +248,7 @@ export const de = {
     earlierPlan: (date: string) => `Noch offen vom ${date}`,
     critical: 'Dringend · DEFCON 1–2',
     resetFilters: 'Filter zurücksetzen',
-    filtersHint: 'Suche und DEFCON-Filter gelten auch hier. Zähler beziehen sich auf die ausgewählten Projekte.',
+    filtersHint: 'Suche, DEFCON und Projektauswahl gelten auch hier. Zähler beziehen sich auf die ausgewählten Projekte.',
     noMatches: 'Keine Aufgaben für diese Auswahl.',
     undo: 'Rückgängig',
     changed: (title: string) => `Aktualisiert: ${title}`,

@@ -236,7 +236,7 @@ export const en: Dict = {
     earlierPlan: (date: string) => `Still open from ${date}`,
     critical: 'Urgent · DEFCON 1–2',
     resetFilters: 'Reset filters',
-    filtersHint: 'Search and DEFCON filters also apply here. Counters refer to the selected projects.',
+    filtersHint: 'Search, DEFCON and project selection apply here. Counters refer to the selected projects.',
     noMatches: 'No tasks match this selection.',
     undo: 'Undo',
     changed: (title: string) => `Updated: ${title}`,

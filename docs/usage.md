@@ -56,8 +56,9 @@ Plan tomorrow displays only tasks explicitly planned for the next local day.
 **Choose tasks for tomorrow** opens other unfinished tasks, including tasks
 planned on an earlier day. A task appears once in the active view. Search,
 project and DEFCON filters apply to both planning views; **Reset filters** is
-available when a filter hides results. Switching away from Today clears its
-due / overdue / completed counter filter. Arrow keys move between the tabs.
+available when a filter hides results and clears project selection too.
+Switching away from Today clears its due / overdue / completed counter filter.
+Arrow keys move between the tabs.
 Planning edits support the same field-level Undo as other Today edits.
 
 * **Work on today** — open tasks explicitly planned for this local calendar day.

@@ -1261,6 +1261,7 @@ select {
 .today-modes button { border: 0; border-radius: 6px; padding: 8px 12px; background: transparent; color: var(--today-muted); cursor: pointer; font: 600 12px var(--sans); }
 .today-modes button[aria-selected='true'] { background: #203856; color: #edf5ff; }
 .today-modes button:focus-visible { outline: 2px solid #a1c9ff; outline-offset: 2px; }
+.today [role='tabpanel'][hidden] { display: none; }
 .today-planning { display: flex; flex-direction: column; gap: 11px; margin-top: 18px; max-width: 800px; }
 .today-planning h2 { font-size: 17px; }
 .today-planning > p { color: var(--today-muted); font-size: 13px; line-height: 1.5; }
