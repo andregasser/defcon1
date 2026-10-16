@@ -541,3 +541,54 @@ it('keeps polling after detecting corruption so another browser can complete rec
   assert.equal(result.current.data.tasks[0]?.title, 'Recovered elsewhere')
   assert.equal(result.current.notice, null)
 })
+
+
+it('keeps the last healthy board across corruption polling and remount with no prior copies', async () => {
+  const first = renderHook(() => useBoard())
+  await settle()
+  assert.equal(first.result.current.data.tasks[0].title, 'Original')
+  assert.equal(first.result.current.recoverySnapshots.length, 0)
+  vi.stubGlobal('fetch', async () => response({ rev: 0, data: { projects: [], tasks: [] }, recoveryRequired: true, recoveryToken: 'damaged' }, 503))
+  await tick(4000)
+  assert.equal(first.result.current.notice?.kind, 'recoveryRequired')
+  assert.equal(first.result.current.recoverySnapshots.length, 1)
+  const copy = first.result.current.recoverySnapshots[0]
+  assert.equal(copy.data.tasks[0].title, 'Original')
+  assert.equal(first.result.current.recoveryDurable, true)
+  await tick(12000)
+  assert.deepEqual(first.result.current.recoverySnapshots.map((entry) => entry.id), [copy.id])
+  first.unmount()
+  const second = renderHook(() => useBoard())
+  await settle()
+  assert.equal(second.result.current.recoverySnapshots.length, 1)
+  assert.equal(second.result.current.recoverySnapshots[0].data.tasks[0].title, 'Original')
+  vi.stubGlobal('fetch', async () => response({ rev: 'aaaaaaaa-1111-4111-8111-111111111111', data: board('Recovered elsewhere') }))
+  await tick(4000)
+  assert.equal(second.result.current.data.tasks[0].title, 'Recovered elsewhere')
+  assert.equal(second.result.current.recoverySnapshots[0].data.tasks[0].title, 'Original')
+})
+
+it('exports the last healthy board when corruption polling cannot persist its recovery copy', async () => {
+  localStorage.setItem(PREFS_KEY, JSON.stringify({ lang: 'en' }))
+  let exported!: Blob
+  vi.stubGlobal('URL', class extends URL {
+    static createObjectURL(blob: Blob) { exported = blob; return 'blob:recovery-export' }
+    static revokeObjectURL() {}
+  })
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+  render(<App />)
+  await settle()
+  assert.ok(screen.getByText('Original'))
+  assert.equal(loadRecovery().length, 0)
+  vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new DOMException('Full', 'QuotaExceededError') })
+  vi.stubGlobal('fetch', async () => response({ rev: 0, data: { projects: [], tasks: [] }, recoveryRequired: true, recoveryToken: 'damaged' }, 503))
+  await tick(4000)
+  const warning = screen.getByRole('alert')
+  assert.ok(warning.textContent?.includes('Export them now'))
+  assert.equal(screen.queryByText('Original'), null)
+  act(() => within(warning).getByRole('button', { name: 'Export recovery copy' }).click())
+  vi.useRealTimers()
+  const text = await new Promise<string>((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.readAsText(exported) })
+  assert.equal(JSON.parse(text).data.tasks[0].title, 'Original')
+  assert.equal(loadRecovery().length, 0, 'failed persistence must not claim the memory copy is durable')
+})

@@ -225,6 +225,9 @@ export function useBoard(lang: Lang = 'en'): BoardStore {
         if (!aliveRef.current || !remote || pausedRef.current || dirtyRef.current || savingRef.current ||
           generation !== generationRef.current || rev !== revRef.current ||
           (remote.rev === rev && !!remote.recoveryRequired === recoveryRequiredRef.current)) return
+        // Disk backups precede the current board, so this may be its last readable copy.
+        if (remote.recoveryRequired && !recoveryRequiredRef.current &&
+          (dataRef.current.projects.length || dataRef.current.tasks.length)) capture(dataRef.current, 'beforeRestore')
         recoveryRequiredRef.current = !!remote.recoveryRequired
         adopt(remote.data, remote.rev)
         setNotice((current) => remote.recoveryRequired ? { kind: 'recoveryRequired' }
@@ -232,7 +235,7 @@ export function useBoard(lang: Lang = 'en'): BoardStore {
       })
     }, POLL_INTERVAL_MS)
     return () => clearInterval(timer)
-  }, [adopt, connect, flush])
+  }, [adopt, capture, connect, flush])
 
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {

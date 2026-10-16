@@ -242,7 +242,10 @@ every browser talks to it.
   the damaged file with an empty board. Recovery requires an explicit restore;
   the original bytes are retained under `data/backups/unreadable-*.json` and are
   not pruned with the normal backups. Recovery creates a fresh persisted revision,
-  so pre-recovery tabs cannot overwrite it even after a server restart.
+  so pre-recovery tabs cannot overwrite it even after a server restart. When an
+  open browser detects corruption, it preserves its last healthy board in Recovery
+  before switching to recovery mode; if browser storage fails, export that copy
+  from the warning before closing the page.
 * **Second browser** — the board polls every 4 seconds, so someone else's
   changes just show up.
 * **Crash safety** — writes go through a temp file plus `rename`, so a crash can
