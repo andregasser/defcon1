@@ -9,7 +9,7 @@ import { PREFS_KEY } from '../constants'
 import { useBoard } from '../hooks/useBoard'
 import { loadRecovery } from '../lib/recovery'
 import { todayISO } from '../lib/date'
-import { normalizeData } from '../lib/storage'
+import { fetchState, normalizeData, putState } from '../lib/storage'
 import type { BoardData } from '../types'
 
 const board = (title: string): BoardData => normalizeData({ projects: [{ id: 'p', name: 'Project' }], tasks: [{ id: 't', projectId: 'p', title, createdAt: '2026-10-15T09:00:00Z' }] })
@@ -426,4 +426,118 @@ it('keeps new recovery copies durable when the legacy recovery value is malforme
   const second = renderHook(() => useBoard())
   await settle()
   assert.equal(second.result.current.recoverySnapshots[0].data.tasks[0].title, 'New durable work')
+})
+
+
+it('keeps a successful browser-only restore when the server reconnects', async () => {
+  let online = false
+  vi.stubGlobal('fetch', async () => {
+    if (!online) throw new Error('offline')
+    return response(remote)
+  })
+  const { result } = renderHook(() => useBoard())
+  await settle()
+  assert.equal(result.current.mode, 'local')
+  const target = await result.current.reviewRecovery()
+  await act(async () => assert.equal(await result.current.restoreRecovery(board('Chosen local copy'), target!), true))
+  online = true
+  await tick(4500)
+  assert.equal(result.current.mode, 'local')
+  assert.equal(result.current.data.tasks[0].title, 'Chosen local copy')
+  assert.equal(JSON.parse(localStorage.getItem('defcon1.data.v1')!).tasks[0].title, 'Chosen local copy')
+})
+
+it('still reconnects after a browser-only restore fails to persist', async () => {
+  let online = false
+  vi.stubGlobal('fetch', async () => {
+    if (!online) throw new Error('offline')
+    return response(remote)
+  })
+  const { result } = renderHook(() => useBoard())
+  await settle()
+  const target = await result.current.reviewRecovery()
+  const storage = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new DOMException('Full', 'QuotaExceededError') })
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+  await act(async () => assert.equal(await result.current.restoreRecovery(board('Unsaved choice'), target!), false))
+  storage.mockRestore()
+  online = true
+  await tick(4500)
+  assert.equal(result.current.mode, 'server')
+  assert.equal(result.current.data.tasks[0].title, 'Original')
+})
+
+
+it('preserves opaque revisions through saves, conflicts, reviewed restores and later edits', async () => {
+  const ids = [
+    'eeeeeeee-1111-4111-8111-111111111111',
+    'dddddddd-2222-4222-8222-222222222222',
+    'cccccccc-3333-4333-8333-333333333333',
+    'bbbbbbbb-4444-4444-8444-444444444444',
+    'aaaaaaaa-5555-4555-8555-555555555555',
+  ]
+  let state = { rev: ids[0], data: board('Opaque board') }
+  vi.stubGlobal('fetch', async (_url: string, init?: RequestInit) => {
+    if (!init?.method) return response(state)
+    const payload = JSON.parse(String(init.body))
+    if (payload.rev !== state.rev) return response(state, 409)
+    const next = ids[ids.indexOf(state.rev) + 1]
+    state = { rev: next, data: payload.data }
+    return response({ rev: next })
+  })
+  const { result } = renderHook(() => useBoard())
+  await settle()
+  act(() => result.current.replaceAll(board('Saved edit')))
+  await tick()
+  assert.equal(result.current.saveState, 'saved')
+  assert.equal(state.data.tasks[0].title, 'Saved edit')
+  state = { rev: ids[2], data: board('Other tab') }
+  act(() => result.current.replaceAll(board('Conflicting edit')))
+  await tick()
+  assert.equal(result.current.data.tasks[0].title, 'Other tab')
+  assert.equal(result.current.notice?.kind, 'conflict')
+  const target = await result.current.reviewRecovery()
+  await act(async () => assert.equal(await result.current.restoreRecovery(board('Restored copy'), target!), true))
+  assert.equal(state.data.tasks[0].title, 'Restored copy')
+  act(() => result.current.replaceAll(board('Edit after restore')))
+  await tick()
+  assert.equal(result.current.saveState, 'saved')
+  assert.equal(state.data.tasks[0].title, 'Edit after restore')
+})
+
+it.each([null, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, '1', 'invalid-revision'])('rejects malformed remote revisions (%s) instead of inventing an identity', async (rev) => {
+  vi.stubGlobal('fetch', async () => response({ rev, data: board('Invalid identity') }))
+  assert.equal(await fetchState(), null)
+  assert.equal((await putState(2, board('Attempt'))).ok, false)
+  vi.stubGlobal('fetch', async () => response({ rev, data: board('Invalid conflict') }, 409))
+  const conflict = await putState(2, board('Attempt'))
+  assert.equal(conflict.ok, false)
+  if (!conflict.ok) assert.equal(conflict.conflict, false)
+})
+
+it('does not let an old in-flight poll overwrite a restored board', async () => {
+  let finish!: (value: Response) => void
+  const { result } = renderHook(() => useBoard())
+  await settle()
+  const target = await result.current.reviewRecovery()
+  vi.stubGlobal('fetch', async (_url: string, init?: RequestInit) => {
+    if (init?.method === 'POST') return response({ rev: 'aaaaaaaa-1111-4111-8111-111111111111' })
+    return new Promise<Response>((resolve) => { finish = resolve })
+  })
+  await tick(4000)
+  await act(async () => assert.equal(await result.current.restoreRecovery(board('Restored'), target!), true))
+  await act(async () => finish(response({ rev: 99, data: board('Old poll') })))
+  assert.equal(result.current.data.tasks[0].title, 'Restored')
+})
+
+
+it('keeps polling after detecting corruption so another browser can complete recovery', async () => {
+  const { result } = renderHook(() => useBoard())
+  await settle()
+  vi.stubGlobal('fetch', async () => response({ rev: 0, data: { projects: [], tasks: [] }, recoveryRequired: true, recoveryToken: 'damaged' }, 503))
+  await tick(4000)
+  assert.equal(result.current.notice?.kind, 'recoveryRequired')
+  vi.stubGlobal('fetch', async () => response({ rev: 'aaaaaaaa-1111-4111-8111-111111111111', data: board('Recovered elsewhere') }))
+  await tick(4000)
+  assert.equal(result.current.data.tasks[0]?.title, 'Recovered elsewhere')
+  assert.equal(result.current.notice, null)
 })

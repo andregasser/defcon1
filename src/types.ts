@@ -114,8 +114,11 @@ export interface RecoverySnapshot {
   data: BoardData
 }
 
+/** Legacy numeric counter or the opaque identity persisted by current servers. */
+export type ServerRevision = number | string
+
 export interface RecoveryTarget {
-  rev: number
+  rev: ServerRevision
   recoveryToken?: string
   /** Guards edits made in this browser after the replacement was reviewed. */
   generation: number

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import assert from 'node:assert/strict'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { once } from 'node:events'
@@ -5,7 +6,10 @@ import { createServer } from 'node:net'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, it } from 'vitest'
+import { afterEach, beforeEach, describe, it, vi } from 'vitest'
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
+import { useBoard } from '../hooks/useBoard'
+import { normalizeData } from '../lib/storage'
 
 let directory: string
 let child: ChildProcess | undefined
@@ -29,9 +33,10 @@ async function start() {
 }
 async function stop() { if (child) { const exited = once(child, 'exit'); child.kill(); await exited; child = undefined } }
 const get = (url: string) => fetch(`${origin}${url}`)
-const put = (rev: number, name: string) => fetch(`${origin}/api/state`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rev, data: data(name) }) })
-beforeEach(async () => { directory = await fs.mkdtemp(path.join(os.tmpdir(), 'defcon-recovery-')); await start() })
-afterEach(async () => { await stop(); await fs.rm(directory, { recursive: true, force: true }) })
+const put = (rev: number | string, name: string) => fetch(`${origin}/api/state`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rev, data: data(name) }) })
+const nativeFetch = globalThis.fetch
+beforeEach(async () => { localStorage.clear(); directory = await fs.mkdtemp(path.join(os.tmpdir(), 'defcon-recovery-')); await start() })
+afterEach(async () => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); await stop(); await fs.rm(directory, { recursive: true, force: true }) })
 
 describe('real persistence server', () => {
   it('serializes concurrent revisions and preserves the winner through restart', async () => {
@@ -43,8 +48,9 @@ describe('real persistence server', () => {
   })
 
   it('lists and reads validated backups without accepting arbitrary paths or symlinks', async () => {
-    assert.equal((await put(0, 'Prior')).status, 200)
-    assert.equal((await put(1, 'Current')).status, 200)
+    const priorWrite = await put(0, 'Prior')
+    assert.equal(priorWrite.status, 200)
+    assert.equal((await put((await priorWrite.json()).rev, 'Current')).status, 200)
     const response = await get('/api/backups')
     assert.equal(response.status, 200)
     const { backups } = await response.json()
@@ -81,9 +87,9 @@ describe('real persistence server', () => {
 })
 
 it('queues an explicit restore with normal writes and backs up the board it replaces', async () => {
-  await put(0, 'Original')
-  const restore = fetch(`${origin}/api/restore`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rev: 1, data: data('Restored') }) })
-  const results = await Promise.all([restore, put(1, 'Competing')])
+  const { rev } = await (await put(0, 'Original')).json()
+  const restore = fetch(`${origin}/api/restore`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rev, data: data('Restored') }) })
+  const results = await Promise.all([restore, put(rev, 'Competing')])
   assert.deepEqual(results.map((r) => r.status).sort(), [200, 409])
   const { backups } = await (await get('/api/backups')).json()
   const copies = await Promise.all(backups.map(async (copy: { id: string }) => (await (await get(`/api/backups/${copy.id}`)).json()).data.projects[0].name))
@@ -121,4 +127,71 @@ it('detects primary corruption during the running process and blocks normal repl
   const files = (await fs.readdir(path.join(directory, 'backups'))).filter((file) => file.startsWith('unreadable-'))
   assert.equal(files.length, 1)
   assert.equal(await fs.readFile(path.join(directory, 'backups', files[0]), 'utf8'), '{ damaged while running')
+})
+
+
+async function writeLegacyHistory() {
+  await fs.writeFile(path.join(directory, 'board.json'), JSON.stringify({ rev: 1, data: data('Legacy'), updatedAt: null }))
+  const saved = await put(1, 'Latest before corruption')
+  assert.equal(saved.status, 200)
+  return (await saved.json()).rev as number | string
+}
+
+async function recoverCorruption(restart: boolean) {
+  await fs.writeFile(path.join(directory, 'board.json'), '{ damaged primary')
+  if (restart) { await stop(); await start() }
+  const damaged = await (await get('/api/state')).json()
+  const restored = await fetch(`${origin}/api/restore`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rev: damaged.rev, recoveryToken: damaged.recoveryToken, data: data('Recovered') }) })
+  assert.equal(restored.status, 200)
+  return (await restored.json()).rev as number | string
+}
+
+for (const restart of [false, true]) {
+  const scenario = restart ? 'after a corrupt-primary restart' : 'after live primary corruption'
+  it(`rejects all pre-recovery writes ${scenario} and retains the new identity through restart`, async () => {
+    const latest = await writeLegacyHistory()
+    const recovered = await recoverCorruption(restart)
+    const staleStatuses = await Promise.all([1, latest].map(async (rev) => (await put(rev, 'Stale overwrite')).status))
+    assert.deepEqual(staleStatuses, [409, 409])
+    const staleRestore = await fetch(`${origin}/api/restore`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rev: latest, data: data('Stale restored copy') }) })
+    assert.equal(staleRestore.status, 409)
+    await stop(); await start()
+    const state = await (await get('/api/state')).json()
+    assert.equal(state.rev, recovered)
+    assert.equal(state.data.projects[0].name, 'Recovered')
+    assert.equal((await put(latest, 'Stale after restart')).status, 409)
+    assert.equal((await put(recovered, 'Current edit')).status, 200)
+    assert.equal((await (await get('/api/state')).json()).data.projects[0].name, 'Current edit')
+  })
+
+  it(`polls the recovered board ${scenario} and saves with its identity`, async () => {
+    await writeLegacyHistory()
+    vi.stubGlobal('fetch', (input: string, init?: RequestInit) => nativeFetch(input.startsWith('/') ? `${origin}${input}` : input, init))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => assert.equal(result.current.data.projects[0]?.name, 'Latest before corruption'))
+    await recoverCorruption(restart)
+    await waitFor(() => assert.equal(result.current.data.projects[0]?.name, 'Recovered'), { timeout: 5000 })
+    act(() => result.current.replaceAll(normalizeData(data('Edit after polling'))))
+    await act(async () => { await result.current.retrySave() })
+    assert.equal(result.current.saveState, 'saved')
+    assert.equal((await (await get('/api/state')).json()).data.projects[0].name, 'Edit after polling')
+  }, 10000)
+}
+
+
+it('reads legacy primary and backup revisions and rejects malformed write identities', async () => {
+  await writeLegacyHistory()
+  const { backups } = await (await get('/api/backups')).json()
+  const legacy = await (await get(`/api/backups/${backups[0].id}`)).json()
+  assert.equal(legacy.rev, 1)
+  assert.equal(legacy.data.projects[0].name, 'Legacy')
+  const original = await fs.readFile(path.join(directory, 'board.json'), 'utf8')
+  for (const rev of [null, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, '1', 'invalid-revision']) {
+    const result = await fetch(`${origin}/api/state`, { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rev, data: data('Malformed identity') }) })
+    assert.equal(result.status, 400)
+  }
+  assert.equal(await fs.readFile(path.join(directory, 'board.json'), 'utf8'), original)
 })

@@ -59,9 +59,14 @@ const MIME = {
 /** Serialises writes so two browsers saving at once cannot interleave. */
 let writeChain = Promise.resolve()
 
+function validRevision(value) {
+  return typeof value === 'number' ? Number.isSafeInteger(value) && value >= 0
+    : typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(value)
+}
+
 function parseState(raw) {
   const parsed = JSON.parse(raw)
-  if (!parsed || !Number.isSafeInteger(parsed.rev) || parsed.rev < 0 || !validData(parsed.data)) {
+  if (!parsed || !validRevision(parsed.rev) || !validData(parsed.data)) {
     throw new Error('malformed state')
   }
   return { rev: parsed.rev, data: parsed.data, updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : null }
@@ -151,7 +156,9 @@ function saveState(clientRev, data, restore = false, recoveryToken) {
       return { conflict: true, state: current }
     }
     const next = {
-      rev: current.rev + 1,
+      // A fresh persisted identity cannot reuse a pre-corruption counter, even
+      // if the process restarted and no longer knows the previous revision.
+      rev: randomUUID(),
       data,
       updatedAt: new Date().toISOString(),
     }
@@ -234,7 +241,7 @@ async function handleApi(req, res, pathname) {
       return sendJSON(res, 400, { error: 'data.projects and data.tasks must be arrays' })
     }
 
-    if (!Number.isSafeInteger(payload.rev) || payload.rev < 0) return sendJSON(res, 400, { error: 'invalid revision' })
+    if (!validRevision(payload.rev)) return sendJSON(res, 400, { error: 'invalid revision' })
     const result = await saveState(payload.rev, payload.data, pathname === '/api/restore', payload.recoveryToken)
     if (result.recoveryRequired) return sendJSON(res, 503, { error: 'explicit recovery required', ...result.state })
     if (result.conflict) {

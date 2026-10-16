@@ -7,7 +7,7 @@ import {
   STATUS_IDS,
 } from '../constants'
 import { detectLang, isLang } from '../i18n/lang'
-import type { BoardData, ChecklistItem, Defcon, Prefs, Project, Status, Task, ServerBackupSummary } from '../types'
+import type { BoardData, ChecklistItem, Defcon, Prefs, Project, Status, Task, ServerBackupSummary, ServerRevision } from '../types'
 import { uid } from './board'
 import { nowISO, parseISODate, todayISO } from './date'
 import { isBrowserDemo } from './runtime'
@@ -20,7 +20,7 @@ import { isBrowserDemo } from './runtime'
 export const EMPTY_BACKUP = 'EMPTY_BACKUP'
 
 export interface RemoteState {
-  rev: number
+  rev: ServerRevision
   data: BoardData
   updatedAt?: string | null
   recoveryRequired?: boolean
@@ -28,7 +28,7 @@ export interface RemoteState {
 }
 
 export type PutResult =
-  | { ok: true; rev: number }
+  | { ok: true; rev: ServerRevision }
   | { ok: false; conflict: true; state: RemoteState }
   | { ok: false; conflict: false; error: string }
 
@@ -136,28 +136,33 @@ export function normalizeData(raw: unknown): BoardData {
 
 /* ------------------------------------------------------------------ server */
 
+function validRevision(value: unknown): value is ServerRevision {
+  return typeof value === 'number' ? Number.isSafeInteger(value) && value >= 0
+    : typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(value)
+}
+
 /** Resolves to the server state, or null when no server is reachable. */
 export async function fetchState(): Promise<RemoteState | null> {
   try {
     const response = await fetch('/api/state', { cache: 'no-store' })
     const payload = (await response.json()) as RemoteState
     if (!response.ok && !(response.status === 503 && payload.recoveryRequired)) return null
-    return { ...payload, rev: Number(payload.rev) || 0, data: normalizeData(payload.data) }
+    if (!validRevision(payload?.rev)) return null
+    return { ...payload, data: normalizeData(payload.data) }
   } catch {
     return null
   }
 }
 
-export async function putState(rev: number, data: BoardData): Promise<PutResult> {
+export async function putState(rev: ServerRevision, data: BoardData): Promise<PutResult> {
   return writeRemote('/api/state', 'PUT', { rev, data })
 }
 
-export async function restoreState(rev: number, data: BoardData, recoveryToken?: string): Promise<PutResult> {
+export async function restoreState(rev: ServerRevision, data: BoardData, recoveryToken?: string): Promise<PutResult> {
   return writeRemote('/api/restore', 'POST', { rev, data, recoveryToken })
 }
 
-async function writeRemote(url: string, method: string, payload: { rev: number; data: BoardData; recoveryToken?: string }): Promise<PutResult> {
-  const { rev } = payload
+async function writeRemote(url: string, method: string, payload: { rev: ServerRevision; data: BoardData; recoveryToken?: string }): Promise<PutResult> {
   try {
     const response = await fetch(url, {
       method,
@@ -167,10 +172,11 @@ async function writeRemote(url: string, method: string, payload: { rev: number; 
 
     if (response.status === 409) {
       const payload = (await response.json()) as RemoteState
+      if (!validRevision(payload?.rev)) return { ok: false, conflict: false, error: 'invalid revision' }
       return {
         ok: false,
         conflict: true,
-        state: { ...payload, rev: Number(payload.rev) || 0, data: normalizeData(payload.data) },
+        state: { ...payload, data: normalizeData(payload.data) },
       }
     }
     if (!response.ok) {
@@ -178,8 +184,9 @@ async function writeRemote(url: string, method: string, payload: { rev: number; 
       return { ok: false, conflict: false, error: payload.error ?? `HTTP ${response.status}` }
     }
 
-    const saved = (await response.json()) as { rev: number }
-    return { ok: true, rev: Number(saved.rev) || rev + 1 }
+    const saved = (await response.json()) as { rev: unknown }
+    if (!validRevision(saved?.rev)) return { ok: false, conflict: false, error: 'invalid revision' }
+    return { ok: true, rev: saved.rev }
   } catch (error) {
     return { ok: false, conflict: false, error: (error as Error).message }
   }

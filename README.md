@@ -220,8 +220,8 @@ create in Safari is invisible to Firefox, and Safari additionally evicts it afte
 seven days of inactivity on `file://` pages. So the server holds the truth and
 every browser talks to it.
 
-* **Conflicts** — every save carries a `rev` counter. Write with a stale
-  revision and you get HTTP 409; the board preserves your latest local work in
+* **Conflicts** — every save carries the exact `rev` identity last read from the
+  server. Write with a stale revision and you get HTTP 409; the board preserves your latest local work in
   **Recovery** before adopting the server state. A conflicted write is never
   retried over the winning board automatically.
 * **Save failures** — pending edits are copied into separate browser recovery
@@ -241,7 +241,8 @@ every browser talks to it.
 * **Unreadable board file** — normal saves are blocked instead of overwriting
   the damaged file with an empty board. Recovery requires an explicit restore;
   the original bytes are retained under `data/backups/unreadable-*.json` and are
-  not pruned with the normal backups.
+  not pruned with the normal backups. Recovery creates a fresh persisted revision,
+  so pre-recovery tabs cannot overwrite it even after a server restart.
 * **Second browser** — the board polls every 4 seconds, so someone else's
   changes just show up.
 * **Crash safety** — writes go through a temp file plus `rename`, so a crash can
@@ -250,14 +251,24 @@ every browser talks to it.
 * **No server?** — the frontend falls back to localStorage and says
   *"this browser only"* in the top right. Start the server later and an existing
   localStorage board is migrated over once if the server is empty and no local
-  edit has occurred. Once you edit browser-only, automatic reconnection stops
-  for that session so it cannot replace your work.
+  edit has occurred. Once you edit or successfully restore a copy browser-only,
+  automatic reconnection stops for that session so it cannot replace your work.
 * **By hand** — `Export` writes a JSON file, `Import` reads it back. It is one
   process and one file, so you are free to copy, version, or sync
   `data/board.json` yourself.
 * **Somewhere else** — `DEFCON1_DATA_DIR` moves the file out of the checkout
   entirely, which is worth doing; see
   [Keeping your board out of the checkout](#keeping-your-board-out-of-the-checkout).
+
+The server now writes UUID strings as revision identities; clients must echo them
+unchanged and compare equality, never increment, coerce to a number, or sort them.
+Existing numeric revisions in board files and backups remain readable and are
+replaced with a UUID on the next successful write. Task data and JSON exports
+need no migration. Deploy the server and frontend together, update custom API
+clients, and reload existing browser tabs: older clients assume numeric counters
+and cannot reliably poll or save against the new identities. Older server versions
+cannot read the new envelopes; before downgrading, export the board and import
+that data through the older version instead of reusing its UUID envelope.
 
 Recovery copies use separate entries below `defcon1.recovery.v1.*`; the public
 demo uses `defcon1.demo.recovery.v1.*`. Existing single-key histories migrate

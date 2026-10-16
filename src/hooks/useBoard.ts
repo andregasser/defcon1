@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { BoardData, BoardNotice, Lang, RecoverySnapshot, RecoveryTarget, SaveState, StorageMode } from '../types'
+import type { BoardData, BoardNotice, Lang, RecoverySnapshot, RecoveryTarget, SaveState, ServerRevision, StorageMode } from '../types'
 import { createDemoData } from '../lib/board'
 import { isBrowserDemo } from '../lib/runtime'
 import { RECOVERY_LIMIT, isRecoveryStorageKey, loadRecovery, mergeRecovery, pruneRecovery, recoverySnapshot, removePendingRecovery, saveRecovery } from '../lib/recovery'
@@ -41,7 +41,7 @@ export function useBoard(lang: Lang = 'en'): BoardStore {
   const pendingRef = useRef<RecoverySnapshot | null>(null)
   const supersededPendingRef = useRef<RecoverySnapshot[]>([])
   const dataRef = useRef(EMPTY)
-  const revRef = useRef(0)
+  const revRef = useRef<ServerRevision>(0)
   const generationRef = useRef(0)
   const modeRef = useRef<StorageMode>('loading')
   const dirtyRef = useRef(false)
@@ -100,7 +100,7 @@ export function useBoard(lang: Lang = 'en'): BoardStore {
     setData(next)
   }, [persistRecovery])
 
-  const adopt = useCallback((next: BoardData, rev: number) => {
+  const adopt = useCallback((next: BoardData, rev: ServerRevision) => {
     revRef.current = rev
     dataRef.current = next
     generationRef.current++
@@ -218,13 +218,17 @@ export function useBoard(lang: Lang = 'en'): BoardStore {
         return
       }
       if (modeRef.current === 'local' && !localEditRef.current) { void connect(); return }
-      if (modeRef.current !== 'server' || pausedRef.current || recoveryRequiredRef.current) return
+      if (modeRef.current !== 'server' || pausedRef.current) return
       const generation = generationRef.current
       const rev = revRef.current
       void fetchState().then((remote) => {
         if (!aliveRef.current || !remote || pausedRef.current || dirtyRef.current || savingRef.current ||
-          generation !== generationRef.current || rev !== revRef.current || remote.rev <= rev) return
+          generation !== generationRef.current || rev !== revRef.current ||
+          (remote.rev === rev && !!remote.recoveryRequired === recoveryRequiredRef.current)) return
+        recoveryRequiredRef.current = !!remote.recoveryRequired
         adopt(remote.data, remote.rev)
+        setNotice((current) => remote.recoveryRequired ? { kind: 'recoveryRequired' }
+          : current?.kind === 'recoveryRequired' ? null : current)
       })
     }, POLL_INTERVAL_MS)
     return () => clearInterval(timer)
@@ -289,6 +293,7 @@ export function useBoard(lang: Lang = 'en'): BoardStore {
       }
       // Preserve a newer local edit if an event arrived while restore was pending.
       if (generationRef.current !== target.generation) capture(dataRef.current, 'beforeRestore')
+      if (modeRef.current === 'local') localEditRef.current = true
       recoveryRequiredRef.current = false
       adopt(next, result.rev)
       setSaveState('saved')
