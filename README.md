@@ -115,18 +115,22 @@ build your day across projects. Planning leaves due dates alone; the progress ba
 counts completed tasks from your explicit plan. Unfinished plans stay on their
 original day until you deliberately plan them again. Use the compact **Earlier
 plans** view to review unfinished work, including blocked tasks. From each row,
-plan it today, choose another valid date, or remove its plan. **Plan tomorrow**
-shows tomorrow's explicit plan and lets you choose other unfinished tasks for it.
+plan it today, or open **More actions** to choose another valid date or remove
+its plan. **Plan tomorrow** shows tomorrow's explicit plan and lets you choose
+other unfinished tasks for it. **Change plan** opens date controls on an already
+planned row.
 Changing a plan never changes the task's due date, status, or DEFCON level.
 
 ![Today counters and a daily plan with one of three planned tasks completed.](docs/images/today-plan.png)
 
 ### One task in focus, with its checklist
 
-**Focus on this task** brings one task and its steps to the front. Start it, tick
-off checklist items or complete it directly; the board card shows a compact
-checklist tally. Completing a focused task offers a possible next task for you
-to choose.
+**Focus on this task** brings one task and its steps to the front. Each Today
+row highlights the next action: focus a pending task, start focused work,
+complete work in progress, resume blocked work, or reopen completed work.
+**More actions** reveals planning, priority and details without crowding that
+next step. Checklist progress stays visible on the row; focused steps stay open.
+Completing a focused task offers a possible next task for you to choose.
 
 ![Write the runbook in the focus panel, with one of three checklist steps checked and direct task actions.](docs/images/task-focus.png)
 

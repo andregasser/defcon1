@@ -234,6 +234,8 @@ export const de = {
     done: 'Erledigen',
     reopen: 'Wieder öffnen',
     details: 'Details öffnen',
+    changePlan: 'Plan ändern',
+    moreActions: 'Mehr Aktionen',
     plan: 'Für heute einplanen',
     unplan: 'Aus Tagesplan nehmen',
     priority: 'Priorität ändern',

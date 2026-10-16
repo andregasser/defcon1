@@ -47,12 +47,14 @@ plan, not every urgent task that arrives during the day.
 Switch between **Today**, **Earlier plans**, and **Plan tomorrow** with the
 compact tabs above the workspace. Earlier plans lists unfinished tasks planned
 before the current local day, including blocked tasks. **Plan for today** moves
-one into today's plan; **Other planning date** and **Apply date** choose a valid
-calendar day; **Remove from plan** clears its plan. These actions only change
-the planning date, leaving due date, status and DEFCON unchanged. Done tasks are
+one into today's plan; **More actions** opens **Other planning date** and
+**Apply date** to choose a valid calendar day, and **Remove from plan** to clear
+its plan. These actions only change the planning date, leaving due date,
+status and DEFCON unchanged. Done tasks are
 excluded from this review. Nothing rolls over automatically at midnight.
 
 Plan tomorrow displays only tasks explicitly planned for the next local day.
+**Change plan** opens the date controls for an already planned task.
 **Choose tasks for tomorrow** opens other unfinished tasks, including tasks
 planned on an earlier day. A task appears once in the active view. Search,
 project and DEFCON filters apply to both planning views; **Reset filters** is
@@ -69,13 +71,18 @@ Planning edits support the same field-level Undo as other Today edits.
   filters include them. Planning a blocked task still counts it in plan progress.
 * **Completed today** — initially collapsed, based on the local day of completion.
 
-Each task appears once. Choose **Focus on this task** to highlight one actionable
+Each task appears once. A pending task highlights **Focus on this task**. The
+focused pending task highlights **Start**; work in progress highlights
+**Complete**; blocked work highlights **Resume work**; and completed work
+highlights **Reopen**. Choose **Focus on this task** to highlight one actionable
 task and expose its checklist. Completion offers a possible next task without
 starting it automatically. Focus is saved per device; plan dates, blocker reasons
 and follow-up dates live with the task and travel with JSON backups.
 
-Rows offer direct start/resume, completion, planning, priority, details and
-checklist actions. Tab reaches every control; arrow keys move between task rows,
+Each row keeps its next action visible. **More actions** expands the other
+controls for starting, completing, planning, priority and details. A compact
+checklist tally remains visible, and its steps can be opened on the row; focused
+steps stay open. Tab reaches every control; arrow keys move between task rows,
 Enter opens the focused row, and the usual status/DEFCON keys still work.
 Completing a row moves keyboard focus to the next available row. **Undo** or
 <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Z</kbd> reverses the last Today task edit in this

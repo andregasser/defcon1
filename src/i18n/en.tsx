@@ -222,6 +222,8 @@ export const en: Dict = {
     done: 'Complete',
     reopen: 'Reopen',
     details: 'Open details',
+    changePlan: 'Change plan',
+    moreActions: 'More actions',
     plan: 'Plan for today',
     unplan: 'Remove from daily plan',
     priority: 'Change priority',
