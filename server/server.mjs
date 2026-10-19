@@ -13,7 +13,8 @@
  */
 
 import { createServer } from 'node:http'
-import { createReadStream } from 'node:fs'
+import { createReadStream, constants } from 'node:fs'
+import { createHash, randomUUID } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -57,44 +58,80 @@ const MIME = {
 
 /** Serialises writes so two browsers saving at once cannot interleave. */
 let writeChain = Promise.resolve()
-let cache = null
 
-async function readState() {
-  if (cache) return cache
-  try {
-    const raw = await fs.readFile(DATA_FILE, 'utf8')
-    const parsed = JSON.parse(raw)
-    if (!parsed || typeof parsed !== 'object' || !parsed.data) throw new Error('malformed')
-    cache = {
-      rev: Number(parsed.rev) || 0,
-      data: {
-        projects: Array.isArray(parsed.data.projects) ? parsed.data.projects : [],
-        tasks: Array.isArray(parsed.data.tasks) ? parsed.data.tasks : [],
-      },
-      updatedAt: parsed.updatedAt ?? null,
-    }
-  } catch (error) {
-    if (error.code !== 'ENOENT') {
-      console.error(`[defcon1] ${DATA_FILE} is unreadable (${error.message}) — starting with an empty board.`)
-    }
-    cache = structuredClone(EMPTY_STATE)
-  }
-  return cache
+function validRevision(value) {
+  return typeof value === 'number' ? Number.isSafeInteger(value) && value >= 0
+    : typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(value)
 }
 
-async function backup() {
-  try {
-    const raw = await fs.readFile(DATA_FILE, 'utf8')
-    await fs.mkdir(BACKUP_DIR, { recursive: true })
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-    await fs.writeFile(path.join(BACKUP_DIR, `board-${stamp}.json`), raw, 'utf8')
+function parseState(raw) {
+  const parsed = JSON.parse(raw)
+  if (!parsed || !validRevision(parsed.rev) || !validData(parsed.data)) {
+    throw new Error('malformed state')
+  }
+  return { rev: parsed.rev, data: parsed.data, updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : null }
+}
 
-    const files = (await fs.readdir(BACKUP_DIR)).filter((f) => f.startsWith('board-')).sort()
-    for (const stale of files.slice(0, Math.max(0, files.length - KEEP_BACKUPS))) {
-      await fs.unlink(path.join(BACKUP_DIR, stale)).catch(() => {})
-    }
+async function readState() {
+  let raw
+  try {
+    raw = await fs.readFile(DATA_FILE)
+    return parseState(raw.toString('utf8'))
   } catch (error) {
-    if (error.code !== 'ENOENT') console.error('[defcon1] backup failed:', error.message)
+    if (error.code === 'ENOENT') return structuredClone(EMPTY_STATE)
+    // Keep the original bytes. Only an explicitly reviewed restore can replace
+    // this state, and its token changes whenever the damaged file changes.
+    return { ...structuredClone(EMPTY_STATE), recoveryRequired: true,
+      recoveryToken: createHash('sha256').update(raw ?? String(error.code)).digest('hex') }
+  }
+}
+
+const backupId = /^board-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z?(?:-[a-f0-9-]{36})?\.json$/
+
+async function ensureBackupDirectory() {
+  await fs.mkdir(BACKUP_DIR, { recursive: true })
+  const stat = await fs.lstat(BACKUP_DIR)
+  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('invalid backup directory')
+}
+
+async function readBackup(id) {
+  if (!backupId.test(id)) throw new Error('invalid backup identifier')
+  await ensureBackupDirectory()
+  // O_NOFOLLOW protects the final component even if it changes after listing.
+  const handle = await fs.open(path.join(BACKUP_DIR, id), constants.O_RDONLY | constants.O_NOFOLLOW)
+  try {
+    if (!(await handle.stat()).isFile()) throw new Error('invalid backup file')
+    return parseState(await handle.readFile('utf8'))
+  } finally { await handle.close() }
+}
+
+async function listBackups() {
+  await ensureBackupDirectory()
+  const backups = []
+  for (const id of (await fs.readdir(BACKUP_DIR)).filter((id) => backupId.test(id)).sort().reverse()) {
+    try {
+      const state = await readBackup(id)
+      backups.push({ id, capturedAt: state.updatedAt ?? id.slice(6, 29).replace(/T(\d{2})-(\d{2})-(\d{2})-(\d{3})/, 'T$1:$2:$3.$4') + 'Z',
+        projects: state.data.projects.length, tasks: state.data.tasks.length })
+    } catch { /* Broken and linked files are never offered as restorable copies. */ }
+  }
+  return backups
+}
+
+async function backup(unreadable = false) {
+  let raw
+  try { raw = await fs.readFile(DATA_FILE) } catch (error) {
+    if (error.code === 'ENOENT') return
+    throw error
+  }
+  await ensureBackupDirectory()
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  // Damaged originals are retained separately and never pruned as normal copies.
+  const prefix = unreadable ? 'unreadable' : 'board'
+  await fs.writeFile(path.join(BACKUP_DIR, `${prefix}-${stamp}-${randomUUID()}.json`), raw, { flag: 'wx' })
+  const files = (await fs.readdir(BACKUP_DIR)).filter((id) => backupId.test(id)).sort()
+  for (const stale of files.slice(0, Math.max(0, files.length - KEEP_BACKUPS))) {
+    await fs.unlink(path.join(BACKUP_DIR, stale))
   }
 }
 
@@ -104,25 +141,28 @@ async function writeState(next) {
   const tmp = `${DATA_FILE}.${process.pid}.tmp`
   await fs.writeFile(tmp, `${JSON.stringify(next, null, 2)}\n`, 'utf8')
   await fs.rename(tmp, DATA_FILE)
-  cache = next
 }
 
 /**
  * Optimistic concurrency: the client sends the rev it last saw. A mismatch
  * means another browser saved in between, so we reject instead of clobbering.
  */
-function saveState(clientRev, data) {
+function saveState(clientRev, data, restore = false, recoveryToken) {
   const run = async () => {
     const current = await readState()
-    if (clientRev !== current.rev) {
+    if (current.recoveryRequired && !restore) return { recoveryRequired: true, state: current }
+    if (clientRev !== current.rev || (current.recoveryRequired && recoveryToken !== current.recoveryToken) ||
+      (!current.recoveryRequired && recoveryToken)) {
       return { conflict: true, state: current }
     }
     const next = {
-      rev: current.rev + 1,
+      // A fresh persisted identity cannot reuse a pre-corruption counter, even
+      // if the process restarted and no longer knows the previous revision.
+      rev: randomUUID(),
       data,
       updatedAt: new Date().toISOString(),
     }
-    await backup()
+    await backup(!!current.recoveryRequired)
     await writeState(next)
     return { conflict: false, state: next }
   }
@@ -177,10 +217,20 @@ async function handleApi(req, res, pathname) {
   }
 
   if (pathname === '/api/state' && req.method === 'GET') {
-    return sendJSON(res, 200, await readState())
+    const state = await readState()
+    return sendJSON(res, state.recoveryRequired ? 503 : 200, state)
   }
 
-  if (pathname === '/api/state' && req.method === 'PUT') {
+  if (pathname === '/api/backups' && req.method === 'GET') {
+    return sendJSON(res, 200, { backups: await listBackups() })
+  }
+
+  if (pathname.startsWith('/api/backups/') && req.method === 'GET') {
+    try { return sendJSON(res, 200, await readBackup(decodeURIComponent(pathname.slice('/api/backups/'.length)))) }
+    catch { return sendJSON(res, 404, { error: 'backup not found' }) }
+  }
+
+  if ((pathname === '/api/state' && req.method === 'PUT') || (pathname === '/api/restore' && req.method === 'POST')) {
     let payload
     try {
       payload = JSON.parse(await readBody(req))
@@ -191,7 +241,9 @@ async function handleApi(req, res, pathname) {
       return sendJSON(res, 400, { error: 'data.projects and data.tasks must be arrays' })
     }
 
-    const result = await saveState(Number(payload.rev) || 0, payload.data)
+    if (!validRevision(payload.rev)) return sendJSON(res, 400, { error: 'invalid revision' })
+    const result = await saveState(payload.rev, payload.data, pathname === '/api/restore', payload.recoveryToken)
+    if (result.recoveryRequired) return sendJSON(res, 503, { error: 'explicit recovery required', ...result.state })
     if (result.conflict) {
       return sendJSON(res, 409, {
         error: 'the board was changed elsewhere in the meantime',

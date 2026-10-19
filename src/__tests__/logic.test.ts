@@ -34,7 +34,7 @@ import {
 import { parseQuickAdd } from '../lib/quickAdd'
 import { loadPrefs, normalizeData, parseBackup, savePrefs } from '../lib/storage'
 import type { TodaySection, TodaySectionId } from '../lib/today'
-import { buildTodayWorkspace, todayCount, todayList } from '../lib/today'
+import { buildDayPlanning, buildTodayWorkspace, nextLocalDay, todayCount, todayList } from '../lib/today'
 import type { Defcon, Project, Status, Task } from '../types'
 
 /* ------------------------------------------------------------------ helpers */
@@ -1084,5 +1084,37 @@ describe('buildTodayWorkspace', () => {
       if (previousTZ === undefined) delete process.env.TZ
       else process.env.TZ = previousTZ
     }
+  })
+})
+
+describe('day planning', () => {
+  const entry = (id: string, plannedFor: string | null, status: Status = 'todo'): Task =>
+    ({ ...task(id, 'p1', status, 0), plannedFor })
+  const ids = (tasks: Task[]) => tasks.map((item) => item.id)
+
+  it('reviews only unfinished earlier plans, including blocked work, without changing tasks', () => {
+    const tasks = [
+      entry('older', '2026-10-12'), entry('blocked', '2026-10-14', 'blocked'),
+      entry('done', '2026-10-13', 'done'), entry('today', '2026-10-15'),
+      entry('future', '2026-10-16'), entry('unplanned', null),
+    ]
+    const before = JSON.stringify(tasks)
+    const result = buildDayPlanning(tasks, '2026-10-15')
+    assert.deepEqual(ids(result.earlier), ['older', 'blocked'])
+    assert.deepEqual(ids(result.tomorrow), ['future'])
+    assert.deepEqual(ids(result.candidates), ['blocked', 'older', 'today', 'unplanned'])
+    assert.equal(JSON.stringify(tasks), before)
+  })
+
+  it('advances by local calendar day across month and year boundaries', () => {
+    assert.equal(nextLocalDay('2026-10-31'), '2026-11-01')
+    assert.equal(nextLocalDay('2026-12-31'), '2027-01-01')
+  })
+
+  it('reclassifies a plan after midnight without changing the stored date', () => {
+    const planned = entry('planned', '2026-10-15')
+    assert.deepEqual(ids(buildDayPlanning([planned], '2026-10-15').earlier), [])
+    assert.deepEqual(ids(buildDayPlanning([planned], '2026-10-16').earlier), ['planned'])
+    assert.equal(planned.plannedFor, '2026-10-15')
   })
 })

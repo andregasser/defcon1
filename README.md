@@ -113,16 +113,24 @@ several to work across them.
 Open **Today** with <kbd>t</kbd>, then **Choose tasks** or **Plan for today** to
 build your day across projects. Planning leaves due dates alone; the progress bar
 counts completed tasks from your explicit plan. Unfinished plans stay on their
-original day until you deliberately plan them again.
+original day until you deliberately plan them again. Use the compact **Earlier
+plans** view to review unfinished work, including blocked tasks. From each row,
+plan it today, or open **More actions** to choose another valid date or remove
+its plan. **Plan tomorrow** shows tomorrow's explicit plan and lets you choose
+other unfinished tasks for it. **Change plan** opens date controls on an already
+planned row.
+Changing a plan never changes the task's due date, status, or DEFCON level.
 
 ![Today counters and a daily plan with one of three planned tasks completed.](docs/images/today-plan.png)
 
 ### One task in focus, with its checklist
 
-**Focus on this task** brings one task and its steps to the front. Start it, tick
-off checklist items or complete it directly; the board card shows a compact
-checklist tally. Completing a focused task offers a possible next task for you
-to choose.
+**Focus on this task** brings one task and its steps to the front. Each Today
+row highlights the next action: focus a pending task, start focused work,
+complete work in progress, resume blocked work, or reopen completed work.
+**More actions** reveals planning, priority and details without crowding that
+next step. Checklist progress stays visible on the row; focused steps stay open.
+Completing a focused task offers a possible next task for you to choose.
 
 ![Write the runbook in the focus panel, with one of three checklist steps checked and direct task actions.](docs/images/task-focus.png)
 
@@ -212,9 +220,32 @@ create in Safari is invisible to Firefox, and Safari additionally evicts it afte
 seven days of inactivity on `file://` pages. So the server holds the truth and
 every browser talks to it.
 
-* **Conflicts** — every save carries a `rev` counter. Write with a stale
-  revision and you get HTTP 409; the board adopts the server state and tells you
-  so in the status line.
+* **Conflicts** — every save carries the exact `rev` identity last read from the
+  server. Write with a stale revision and you get HTTP 409; the board preserves your latest local work in
+  **Recovery** before adopting the server state. A conflicted write is never
+  retried over the winning board automatically.
+* **Save failures** — pending edits are copied into separate browser recovery
+  storage immediately, including edits made during an in-flight save. Failed
+  saves retry at most every 4 seconds; **Retry saving** also retries explicitly.
+  Recovery copies survive a reload when browser storage works, but are never
+  silently imported into the live board.
+* **Restore a copy** — open **Recovery** in the toolbar or a failure notice.
+  Inspect browser copies and server backups, export a selected copy, or confirm
+  replacement of the complete board. The current board is preserved first and
+  the server revision is still checked. The browser keeps up to 10 history copies
+  and 10 pending copies from recent tabs; the dialog shows the newest 10.
+  Identical consecutive history copies are combined, while each tab owns its
+  pending copy so another tab’s successful save cannot delete it. If browser
+  storage is full or blocked, copies remain in memory and a warning asks you to export them before
+  closing the page.
+* **Unreadable board file** — normal saves are blocked instead of overwriting
+  the damaged file with an empty board. Recovery requires an explicit restore;
+  the original bytes are retained under `data/backups/unreadable-*.json` and are
+  not pruned with the normal backups. Recovery creates a fresh persisted revision,
+  so pre-recovery tabs cannot overwrite it even after a server restart. When an
+  open browser detects corruption, it preserves its last healthy board in Recovery
+  before switching to recovery mode; if browser storage fails, export that copy
+  from the warning before closing the page.
 * **Second browser** — the board polls every 4 seconds, so someone else's
   changes just show up.
 * **Crash safety** — writes go through a temp file plus `rename`, so a crash can
@@ -222,13 +253,30 @@ every browser talks to it.
   `data/backups/` (the last 20 are kept).
 * **No server?** — the frontend falls back to localStorage and says
   *"this browser only"* in the top right. Start the server later and an existing
-  localStorage board is migrated over once.
+  localStorage board is migrated over once if the server is empty and no local
+  edit has occurred. Once you edit or successfully restore a copy browser-only,
+  automatic reconnection stops for that session so it cannot replace your work.
 * **By hand** — `Export` writes a JSON file, `Import` reads it back. It is one
   process and one file, so you are free to copy, version, or sync
   `data/board.json` yourself.
 * **Somewhere else** — `DEFCON1_DATA_DIR` moves the file out of the checkout
   entirely, which is worth doing; see
   [Keeping your board out of the checkout](#keeping-your-board-out-of-the-checkout).
+
+The server now writes UUID strings as revision identities; clients must echo them
+unchanged and compare equality, never increment, coerce to a number, or sort them.
+Existing numeric revisions in board files and backups remain readable and are
+replaced with a UUID on the next successful write. Task data and JSON exports
+need no migration. Deploy the server and frontend together, update custom API
+clients, and reload existing browser tabs: older clients assume numeric counters
+and cannot reliably poll or save against the new identities. Older server versions
+cannot read the new envelopes; before downgrading, export the board and import
+that data through the older version instead of reusing its UUID envelope.
+
+Recovery copies use separate entries below `defcon1.recovery.v1.*`; the public
+demo uses `defcon1.demo.recovery.v1.*`. Existing single-key histories migrate
+automatically when a new copy is stored. These copies are per-browser and do not
+replace external JSON exports or the server backups.
 
 View settings (density, sort order, collapsed lanes, focus) deliberately stay in
 localStorage — how you *look* at the board is per-device; the tasks are not.

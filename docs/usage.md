@@ -44,6 +44,25 @@ from previous days keep their date and can be selected again rather than silentl
 rolling over. The progress bar counts completed tasks from the explicit daily
 plan, not every urgent task that arrives during the day.
 
+Switch between **Today**, **Earlier plans**, and **Plan tomorrow** with the
+compact tabs above the workspace. Earlier plans lists unfinished tasks planned
+before the current local day, including blocked tasks. **Plan for today** moves
+one into today's plan; **More actions** opens **Other planning date** and
+**Apply date** to choose a valid calendar day, and **Remove from plan** to clear
+its plan. These actions only change the planning date, leaving due date,
+status and DEFCON unchanged. Done tasks are
+excluded from this review. Nothing rolls over automatically at midnight.
+
+Plan tomorrow displays only tasks explicitly planned for the next local day.
+**Change plan** opens the date controls for an already planned task.
+**Choose tasks for tomorrow** opens other unfinished tasks, including tasks
+planned on an earlier day. A task appears once in the active view. Search,
+project and DEFCON filters apply to both planning views; **Reset filters** is
+available when a filter hides results and clears project selection too.
+Switching away from Today clears its due / overdue / completed counter filter.
+Arrow keys move between the tabs.
+Planning edits support the same field-level Undo as other Today edits.
+
 * **Work on today** — open tasks explicitly planned for this local calendar day.
 * **Needs attention** — other tasks due today or overdue, at DEFCON 1–2, in progress,
   or ready for follow-up.
@@ -52,13 +71,18 @@ plan, not every urgent task that arrives during the day.
   filters include them. Planning a blocked task still counts it in plan progress.
 * **Completed today** — initially collapsed, based on the local day of completion.
 
-Each task appears once. Choose **Focus on this task** to highlight one actionable
+Each task appears once. A pending task highlights **Focus on this task**. The
+focused pending task highlights **Start**; work in progress highlights
+**Complete**; blocked work highlights **Resume work**; and completed work
+highlights **Reopen**. Choose **Focus on this task** to highlight one actionable
 task and expose its checklist. Completion offers a possible next task without
 starting it automatically. Focus is saved per device; plan dates, blocker reasons
 and follow-up dates live with the task and travel with JSON backups.
 
-Rows offer direct start/resume, completion, planning, priority, details and
-checklist actions. Tab reaches every control; arrow keys move between task rows,
+Each row keeps its next action visible. **More actions** expands the other
+controls for starting, completing, planning, priority and details. A compact
+checklist tally remains visible, and its steps can be opened on the row; focused
+steps stay open. Tab reaches every control; arrow keys move between task rows,
 Enter opens the focused row, and the usual status/DEFCON keys still work.
 Completing a row moves keyboard focus to the next available row. **Undo** or
 <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Z</kbd> reverses the last Today task edit in this
@@ -158,3 +182,50 @@ Open firewall ticket !2 @tomorrow
   work too.
 * Anything that does not parse as a token simply stays in the title — so an
   e-mail address or a stray `!` never gets swallowed.
+
+## Recovering unsaved work and older boards
+
+Open **Recovery** from the toolbar, or **Review copies** in a conflict or save
+failure notice. Browser copies include unsaved work from an earlier page load,
+the latest local board before a conflict, failed saves, and the board before a
+replacement. Server backups are the previous board files saved automatically by
+the local server. The browser demo has its own recovery history and never calls
+the server.
+
+Select a copy to see its origin, timestamp, project/task counts, complete task
+titles, notes, checklist entries, deadlines, planning dates and blocker reasons.
+**Export this copy** downloads exactly that copy, including local work that
+differs from the currently displayed board.
+To restore, check the full-board replacement confirmation and choose **Restore
+complete board**. This replaces all projects and tasks; it does not merge them.
+The current board is retained as another browser recovery copy, and the server
+also backs up its previous file. A newer server revision rejects the restore;
+the dialog stays open so you can inspect and export the selected copy. Close it
+to review the current board, then open Recovery again before trying another
+replacement.
+
+Failed ordinary saves retry automatically no more frequently than every four
+seconds. **Retry saving** makes an immediate attempt using the newest live
+board, serialized with any in-flight save. A conflict is different: the newer
+server board wins, and the local copy must be reviewed deliberately. Retrying
+later edits does not resolve or discard that earlier conflict.
+
+Browser recovery retains up to ten history copies and combines consecutive
+identical history boards. It separately retains up to ten pending copies from
+recent tabs; each tab updates or clears only the pending copies it created.
+The dialog shows the newest ten available copies and updates when another tab
+changes recovery storage. Pending work is recorded before the network request,
+but is never silently adopted on reload. Browser storage can be blocked, full,
+or cleared.
+If a durability warning appears, export the recovery copies immediately: their
+in-memory content will be lost when the page closes. Keep external exports for
+long-term backups.
+
+If `board.json` cannot be read, including damage after the server has started,
+the server preserves it and blocks normal writes. The primary file is checked
+for every state read and queued write. Use Recovery to restore a browser copy
+or server backup deliberately.
+A reviewed recovery token prevents restoration if the damaged file changed in
+the meantime. Its original bytes are retained in `data/backups/unreadable-*.json`
+for manual inspection, outside the normal twenty-backup retention. Backup APIs
+only accept validated backup identifiers and reject malformed files and symlinks.

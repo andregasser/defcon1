@@ -1,6 +1,6 @@
 import { HOT_DEFCONS } from '../constants'
 import type { Task } from '../types'
-import { todayISO } from './date'
+import { parseISODate, todayISO } from './date'
 
 export type TodaySectionId = 'overdue' | 'today' | 'doing' | 'hot'
 
@@ -110,5 +110,36 @@ export function buildTodayWorkspace(tasks: Task[], day: string): TodayWorkspace 
   result.completed.sort((a, b) =>
     new Date(b.doneAt!).getTime() - new Date(a.doneAt!).getTime() || byWorkspaceUrgency(a, b),
   )
+  return result
+}
+
+export function nextLocalDay(day: string): string {
+  const date = parseISODate(day)
+  if (!date || todayISO(date) !== day) throw new RangeError('Invalid local calendar day')
+  date.setDate(date.getDate() + 1)
+  return todayISO(date)
+}
+
+export interface DayPlanning {
+  earlier: Task[]
+  tomorrow: Task[]
+  candidates: Task[]
+}
+
+/** Plans stay attached to their original day until a person moves them. */
+export function buildDayPlanning(tasks: Task[], day: string): DayPlanning {
+  const tomorrow = nextLocalDay(day)
+  const result: DayPlanning = { earlier: [], tomorrow: [], candidates: [] }
+  for (const task of tasks) {
+    if (task.status === 'done') continue
+    if (task.plannedFor && task.plannedFor < day) result.earlier.push(task)
+    if (task.plannedFor === tomorrow) result.tomorrow.push(task)
+    else result.candidates.push(task)
+  }
+  result.earlier.sort((a, b) =>
+    a.plannedFor!.localeCompare(b.plannedFor!) || byWorkspaceUrgency(a, b),
+  )
+  result.tomorrow.sort(byWorkspaceUrgency)
+  result.candidates.sort(byWorkspaceUrgency)
   return result
 }

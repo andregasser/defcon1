@@ -1,257 +1,261 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { BoardData, BoardNotice, Lang, SaveState, StorageMode } from '../types'
+import type { BoardData, BoardNotice, Lang, RecoverySnapshot, RecoveryTarget, SaveState, ServerRevision, StorageMode } from '../types'
 import { createDemoData } from '../lib/board'
 import { isBrowserDemo } from '../lib/runtime'
-import {
-  fetchState,
-  loadLocalData,
-  putState,
-  saveLocalData,
-} from '../lib/storage'
+import { RECOVERY_LIMIT, isRecoveryStorageKey, loadRecovery, mergeRecovery, pruneRecovery, recoverySnapshot, removePendingRecovery, saveRecovery } from '../lib/recovery'
+import { fetchState, loadLocalData, normalizeData, putState, restoreState, saveLocalData } from '../lib/storage'
 
 const SAVE_DEBOUNCE_MS = 400
 const POLL_INTERVAL_MS = 4000
 const SAVED_BADGE_MS = 1400
-
 const EMPTY: BoardData = { projects: [], tasks: [] }
 
 export interface BoardStore {
   data: BoardData
   mode: StorageMode
   saveState: SaveState
-  /** Something worth telling the user, as a code the UI turns into a sentence. */
   notice: BoardNotice | null
   clearNotice: () => void
-  /** Applies a pure transformation and schedules a save. */
   update: (recipe: (data: BoardData) => BoardData) => void
-  /** Wholesale replace — import, demo data, reset. */
   replaceAll: (data: BoardData) => void
-  /** Suspends background polling, e.g. while dragging or editing in a dialog. */
   setSyncPaused: (paused: boolean) => void
+  retrySave: () => Promise<void>
+  recoverySnapshots: RecoverySnapshot[]
+  recoveryDurable: boolean
+  reviewRecovery: () => Promise<RecoveryTarget | null>
+  restoreRecovery: (data: BoardData, target: RecoveryTarget) => Promise<boolean>
 }
 
-/**
- * Owns the board data and its persistence.
- *
- * Prefers the local persistence server (one shared board.json, so Safari and
- * Firefox see the same tasks) and falls back to localStorage when the app was
- * opened without the server. Concurrent edits from a second browser are caught
- * by the rev counter and pulled in instead of silently overwritten.
- */
+/** Server writes share one queue; recovery copies never become implicit imports. */
 export function useBoard(lang: Lang = 'en'): BoardStore {
-  // Language changes affect future resets, not a connection already in flight.
   const initialLang = useRef(lang)
   const [data, setData] = useState<BoardData>(EMPTY)
   const [mode, setMode] = useState<StorageMode>('loading')
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [notice, setNotice] = useState<BoardNotice | null>(null)
-
-  const dataRef = useRef<BoardData>(EMPTY)
-  const revRef = useRef(0)
+  const [recoverySnapshots, setRecoverySnapshots] = useState(loadRecovery)
+  const [recoveryDurable, setRecoveryDurable] = useState(true)
+  // Only this hook's unsaved copies live in memory. Shared durable entries are
+  // re-read, never written back from a private snapshot of another tab's history.
+  const memoryRef = useRef<{ snapshot: RecoverySnapshot; supersedes: RecoverySnapshot[] }[]>([])
+  const pendingRef = useRef<RecoverySnapshot | null>(null)
+  const supersededPendingRef = useRef<RecoverySnapshot[]>([])
+  const dataRef = useRef(EMPTY)
+  const revRef = useRef<ServerRevision>(0)
+  const generationRef = useRef(0)
   const modeRef = useRef<StorageMode>('loading')
   const dirtyRef = useRef(false)
   const savingRef = useRef(false)
-  const queuedRef = useRef(false)
   const pausedRef = useRef(false)
-  const initializedRef = useRef(false)
-  /** Set once the user edits the board while in browser-only mode. */
   const localEditRef = useRef(false)
+  const aliveRef = useRef(false)
+  const connectionRef = useRef(false)
+  const retryAtRef = useRef(0)
+  const recoveryRequiredRef = useRef(false)
 
-  const commit = useCallback((next: BoardData, markDirty: boolean) => {
-    dataRef.current = next
-    dirtyRef.current = markDirty || dirtyRef.current
-    // Remembered for the whole session, not just until the next save: a later
-    // reconnect must not replace a board the user has been working on here.
-    if (markDirty && modeRef.current === 'local') localEditRef.current = true
-    setData(next)
+  const refreshRecovery = useCallback(() => {
+    setRecoverySnapshots(mergeRecovery([
+      ...loadRecovery(), ...memoryRef.current.map((entry) => entry.snapshot),
+      ...(pendingRef.current ? [pendingRef.current] : []),
+    ]))
   }, [])
 
-  const adopt = useCallback((next: BoardData, rev: number) => {
+  const persistRecovery = useCallback(() => {
+    let durable = true
+    memoryRef.current = memoryRef.current.filter((entry) => {
+      if (!saveRecovery(entry.snapshot)) { durable = false; return true }
+      removePendingRecovery(entry.supersedes)
+      return false
+    })
+    if (pendingRef.current) {
+      if (saveRecovery(pendingRef.current)) {
+        removePendingRecovery(supersededPendingRef.current)
+        supersededPendingRef.current = []
+      } else durable = false
+    }
+    pruneRecovery()
+    refreshRecovery()
+    setRecoveryDurable(durable)
+    if (!durable) setNotice((current) => current?.kind === 'conflict' ? current : { kind: 'browserSaveFailed' })
+    return durable
+  }, [refreshRecovery])
+
+  const capture = useCallback((next: BoardData, reason: RecoverySnapshot['reason']) => {
+    memoryRef.current = [...memoryRef.current, { snapshot: recoverySnapshot(next, reason), supersedes: [
+      ...supersededPendingRef.current, ...(pendingRef.current ? [pendingRef.current] : []),
+    ] }].slice(-RECOVERY_LIMIT)
+    pendingRef.current = null
+    supersededPendingRef.current = []
+    return persistRecovery()
+  }, [persistRecovery])
+
+  const commit = useCallback((next: BoardData) => {
+    dataRef.current = next
+    generationRef.current++
+    dirtyRef.current = true
+    if (modeRef.current === 'local' || modeRef.current === 'loading') localEditRef.current = true
+    if (pendingRef.current) supersededPendingRef.current.push(pendingRef.current)
+    pendingRef.current = recoverySnapshot(next, 'pending')
+    persistRecovery()
+    setData(next)
+  }, [persistRecovery])
+
+  const adopt = useCallback((next: BoardData, rev: ServerRevision) => {
     revRef.current = rev
     dataRef.current = next
+    generationRef.current++
     dirtyRef.current = false
+    retryAtRef.current = 0
     setData(next)
   }, [])
 
-  /* ------------------------------------------------------------------ save */
-
-  const saveOnce = useCallback(async () => {
-    const snapshot = dataRef.current
-    setSaveState('saving')
-
-    if (modeRef.current !== 'server') {
-      if (!saveLocalData(snapshot)) {
-        setSaveState('error')
-        setNotice({ kind: 'browserSaveFailed' })
-        return
-      }
-      if (dataRef.current === snapshot) dirtyRef.current = false
-      setSaveState('saved')
-      return
-    }
-
-    const result = await putState(revRef.current, snapshot)
-    if (result.ok) {
-      revRef.current = result.rev
-      if (dataRef.current === snapshot) dirtyRef.current = false
-      setSaveState('saved')
-      return
-    }
-
-    if (result.conflict) {
-      // Another browser was ahead of us. Its version wins; ours would have
-      // overwritten changes we never saw.
-      adopt(result.state.data, result.state.rev)
-      setSaveState('idle')
-      setNotice({ kind: 'conflict' })
-      return
-    }
-
-    setSaveState('error')
-    setNotice({ kind: 'saveFailed', detail: result.error })
-  }, [adopt])
-
   const flush = useCallback(async () => {
-    if (savingRef.current) {
-      queuedRef.current = true
-      return
-    }
+    if (savingRef.current || !dirtyRef.current || recoveryRequiredRef.current || modeRef.current === 'loading') return
     savingRef.current = true
     try {
-      do {
-        queuedRef.current = false
-        await saveOnce()
-      } while (queuedRef.current)
-    } finally {
-      savingRef.current = false
-    }
-  }, [saveOnce])
+      // An edit during the request is saved next, using the returned revision.
+      while (aliveRef.current && dirtyRef.current) {
+        const snapshot = dataRef.current
+        setSaveState('saving')
+        const result = modeRef.current === 'server'
+          ? await putState(revRef.current, snapshot)
+          : saveLocalData(snapshot) ? { ok: true as const, rev: revRef.current } : { ok: false as const, conflict: false as const, error: 'browser storage unavailable' }
+        if (!aliveRef.current) return
+        if (result.ok) {
+          revRef.current = result.rev
+          retryAtRef.current = 0
+          if (dataRef.current === snapshot) {
+            dirtyRef.current = false
+            removePendingRecovery([...supersededPendingRef.current, ...(pendingRef.current ? [pendingRef.current] : [])])
+            supersededPendingRef.current = []
+            pendingRef.current = null
+            persistRecovery()
+          }
+          setSaveState('saved')
+          // A retry does not resolve a previous conflict or dismiss its copy.
+          setNotice((current) => current?.kind === 'saveFailed' ? null : current)
+          continue
+        }
+        capture(dataRef.current, result.conflict ? 'conflict' : 'saveFailed')
+        if (result.conflict) {
+          recoveryRequiredRef.current = !!result.state.recoveryRequired
+          adopt(result.state.data, result.state.rev)
+          setSaveState('idle')
+          setNotice({ kind: 'conflict' })
+        } else {
+          retryAtRef.current = Date.now() + POLL_INTERVAL_MS
+          setSaveState('error')
+          setNotice((current) => current?.kind === 'browserSaveFailed' || current?.kind === 'conflict' ? current : modeRef.current === 'server'
+            ? { kind: 'saveFailed', detail: result.error } : { kind: 'browserSaveFailed' })
+        }
+        break
+      }
+    } finally { savingRef.current = false }
+  }, [adopt, capture, persistRecovery])
 
-  /* ------------------------------------------------------------------ init */
-
-  /**
-   * Tries to reach the server and take over its board. Returns false when the
-   * server is not there, leaving the current mode and data untouched.
-   */
-  const connect = useCallback(async (): Promise<boolean> => {
-    const remote = await fetchState()
-    if (!remote) return false
-
-    modeRef.current = 'server'
-    setMode('server')
-
-    const local = loadLocalData()
-    const remoteEmpty = remote.data.projects.length === 0 && remote.data.tasks.length === 0
-    if (remoteEmpty && local && local.projects.length > 0) {
-      // First run with the server after using the browser-only fallback:
-      // carry the existing board over instead of showing an empty screen.
-      adopt(local, remote.rev)
-      dirtyRef.current = true
-      setNotice({ kind: 'migrated' })
-      void flush()
+  const connect = useCallback(async () => {
+    if (connectionRef.current) return false
+    connectionRef.current = true
+    const generation = generationRef.current
+    try {
+      const remote = await fetchState()
+      if (!aliveRef.current || generation !== generationRef.current || localEditRef.current || !remote) return false
+      modeRef.current = 'server'
+      setMode('server')
+      recoveryRequiredRef.current = !!remote.recoveryRequired
+      if (remote.recoveryRequired) {
+        adopt(remote.data, remote.rev)
+        setNotice({ kind: 'recoveryRequired' })
+        return true
+      }
+      const local = loadLocalData()
+      if (!remote.data.projects.length && !remote.data.tasks.length && local?.projects.length) {
+        adopt(local, remote.rev)
+        commit(local)
+        setNotice({ kind: 'migrated' })
+        void flush()
+      } else adopt(remote.data, remote.rev)
       return true
-    }
-
-    adopt(remote.data, remote.rev)
-    return true
-  }, [adopt, flush])
+    } finally { connectionRef.current = false }
+  }, [adopt, commit, flush])
 
   useEffect(() => {
-    if (initializedRef.current) return
-    initializedRef.current = true
-
+    aliveRef.current = true
+    let cancelled = false
     if (isBrowserDemo()) {
       modeRef.current = 'demo'
       setMode('demo')
       const local = loadLocalData()
       adopt(local ?? createDemoData(initialLang.current), 0)
-      if (!local) {
-        dirtyRef.current = true
-        void flush()
-      }
-      return
+      if (!local) { commit(dataRef.current); void flush() }
+    } else {
+      void (async () => {
+        if (await connect() || cancelled) return
+        if (modeRef.current !== 'loading') return
+        modeRef.current = 'local'
+        setMode('local')
+        if (!dirtyRef.current) {
+          const local = loadLocalData()
+          if (local) adopt(local, 0)
+        }
+      })()
     }
-
-    let cancelled = false
-
-    void (async () => {
-      if (await connect()) return
-      if (cancelled) return
-      modeRef.current = 'local'
-      setMode('local')
-      const local = loadLocalData()
-      if (local) adopt(local, 0)
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [adopt, connect, flush])
-
-  /* --------------------------------------------------------- reconnect */
-
-  /**
-   * Reloading the page while the server restarts used to strand it in
-   * browser-only mode for the rest of the session: the one initial fetch failed,
-   * nothing ever tried again, and the board looked empty until the next reload.
-   * So keep knocking — but only while nothing has been edited here, otherwise a
-   * browser-only session in progress would be pulled out from under the user.
-   */
-  useEffect(() => {
-    if (mode !== 'local' || localEditRef.current) return
-    const timer = setInterval(() => {
-      if (dirtyRef.current || savingRef.current || localEditRef.current) return
-      void connect()
-    }, POLL_INTERVAL_MS)
-    return () => clearInterval(timer)
-  }, [mode, connect])
-
-  /* -------------------------------------------------------- debounced save */
+    return () => { cancelled = true; aliveRef.current = false }
+  }, [adopt, commit, connect, flush])
 
   useEffect(() => {
     if (mode === 'loading' || !dirtyRef.current) return
-    const timer = setTimeout(() => void flush(), SAVE_DEBOUNCE_MS)
+    const delay = Math.max(SAVE_DEBOUNCE_MS, retryAtRef.current - Date.now())
+    const timer = setTimeout(() => void flush(), delay)
     return () => clearTimeout(timer)
-  }, [data, mode, flush])
-
-  /* ------------------------------------------- pick up edits from elsewhere */
+  }, [data, mode, saveState, flush])
 
   useEffect(() => {
-    if (mode !== 'server') return
     const timer = setInterval(() => {
-      if (pausedRef.current || dirtyRef.current || savingRef.current) return
-      void (async () => {
-        const remote = await fetchState()
-        if (!remote || remote.rev === revRef.current) return
-        if (pausedRef.current || dirtyRef.current || savingRef.current) return
+      if (savingRef.current) return
+      if (dirtyRef.current) {
+        if (Date.now() >= retryAtRef.current) void flush()
+        return
+      }
+      if (modeRef.current === 'local' && !localEditRef.current) { void connect(); return }
+      if (modeRef.current !== 'server' || pausedRef.current) return
+      const generation = generationRef.current
+      const rev = revRef.current
+      void fetchState().then((remote) => {
+        if (!aliveRef.current || !remote || pausedRef.current || dirtyRef.current || savingRef.current ||
+          generation !== generationRef.current || rev !== revRef.current ||
+          (remote.rev === rev && !!remote.recoveryRequired === recoveryRequiredRef.current)) return
+        // Disk backups precede the current board, so this may be its last readable copy.
+        if (remote.recoveryRequired && !recoveryRequiredRef.current &&
+          (dataRef.current.projects.length || dataRef.current.tasks.length)) capture(dataRef.current, 'beforeRestore')
+        recoveryRequiredRef.current = !!remote.recoveryRequired
         adopt(remote.data, remote.rev)
-      })()
+        setNotice((current) => remote.recoveryRequired ? { kind: 'recoveryRequired' }
+          : current?.kind === 'recoveryRequired' ? null : current)
+      })
     }, POLL_INTERVAL_MS)
     return () => clearInterval(timer)
-  }, [mode, adopt])
-
-  /* ------------------------------------------------------- flush on unload */
+  }, [adopt, capture, connect, flush])
 
   useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (isRecoveryStorageKey(event.key)) refreshRecovery()
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [refreshRecovery])
+
+  useEffect(() => {
+    // A synchronous browser copy is dependable during teardown; another PUT is
+    // not, and would race the in-flight request with the same revision.
     const onHide = () => {
       if (!dirtyRef.current) return
-      if (modeRef.current === 'server') {
-        // fetch() is unreliable during teardown; keepalive gives it a chance.
-        void fetch('/api/state', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rev: revRef.current, data: dataRef.current }),
-          keepalive: true,
-        }).catch(() => {})
-      } else {
-        saveLocalData(dataRef.current)
-      }
+      persistRecovery()
+      if (modeRef.current === 'local' || modeRef.current === 'demo') saveLocalData(dataRef.current)
     }
     window.addEventListener('pagehide', onHide)
     return () => window.removeEventListener('pagehide', onHide)
-  }, [])
-
-  /* ------------------------------------------------------- transient badge */
+  }, [persistRecovery])
 
   useEffect(() => {
     if (saveState !== 'saved') return
@@ -259,29 +263,55 @@ export function useBoard(lang: Lang = 'en'): BoardStore {
     return () => clearTimeout(timer)
   }, [saveState])
 
-  /* ------------------------------------------------------------------- api */
-
-  const update = useCallback(
-    (recipe: (current: BoardData) => BoardData) => {
-      const next = recipe(dataRef.current)
-      if (next === dataRef.current) return
-      commit(next, true)
-    },
-    [commit],
-  )
-
-  const replaceAll = useCallback(
-    (next: BoardData) => {
-      commit(next, true)
-    },
-    [commit],
-  )
-
-  const setSyncPaused = useCallback((paused: boolean) => {
-    pausedRef.current = paused
+  const reviewRecovery = useCallback(async (): Promise<RecoveryTarget | null> => {
+    if (savingRef.current || modeRef.current === 'loading') return null
+    const generation = generationRef.current
+    if (modeRef.current !== 'server') return { rev: revRef.current, generation }
+    const remote = await fetchState()
+    if (!remote || generation !== generationRef.current || savingRef.current) return null
+    // The fresh GET checks availability; it must not authorize replacing a
+    // newer board that has never been displayed to the user.
+    return { rev: revRef.current, recoveryToken: remote.recoveryToken, generation }
   }, [])
 
-  const clearNotice = useCallback(() => setNotice(null), [])
+  const restoreRecovery = useCallback(async (input: BoardData, target: RecoveryTarget): Promise<boolean> => {
+    if (savingRef.current || generationRef.current !== target.generation) return false
+    savingRef.current = true
+    const next = normalizeData(input)
+    capture(dataRef.current, 'beforeRestore')
+    try {
+      const result = modeRef.current === 'server'
+        ? await restoreState(target.rev, next, target.recoveryToken)
+        : saveLocalData(next) ? { ok: true as const, rev: target.rev } : { ok: false as const, conflict: false as const, error: 'browser storage unavailable' }
+      if (!aliveRef.current) return false
+      if (!result.ok) {
+        if (result.conflict) {
+          capture(dataRef.current, 'conflict')
+          recoveryRequiredRef.current = !!result.state.recoveryRequired
+          adopt(result.state.data, result.state.rev)
+          setNotice({ kind: 'conflict' })
+        } else setNotice(modeRef.current === 'server' ? { kind: 'saveFailed', detail: result.error } : { kind: 'browserSaveFailed' })
+        setSaveState('error')
+        return false
+      }
+      // Preserve a newer local edit if an event arrived while restore was pending.
+      if (generationRef.current !== target.generation) capture(dataRef.current, 'beforeRestore')
+      if (modeRef.current === 'local') localEditRef.current = true
+      recoveryRequiredRef.current = false
+      adopt(next, result.rev)
+      setSaveState('saved')
+      setNotice((current) => current?.kind === 'browserSaveFailed' ? current : null)
+      return true
+    } finally { savingRef.current = false }
+  }, [adopt, capture])
 
-  return { data, mode, saveState, notice, clearNotice, update, replaceAll, setSyncPaused }
+  const update = useCallback((recipe: (current: BoardData) => BoardData) => {
+    const next = recipe(dataRef.current)
+    if (next !== dataRef.current) commit(next)
+  }, [commit])
+  const replaceAll = useCallback((next: BoardData) => commit(normalizeData(next)), [commit])
+  const setSyncPaused = useCallback((paused: boolean) => { pausedRef.current = paused }, [])
+  const clearNotice = useCallback(() => setNotice(null), [])
+  return { data, mode, saveState, notice, clearNotice, update, replaceAll, setSyncPaused, retrySave: flush,
+    recoverySnapshots, recoveryDurable, reviewRecovery, restoreRecovery }
 }
