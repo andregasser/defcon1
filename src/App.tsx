@@ -16,6 +16,7 @@ import {
 import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 
 import { Board } from './components/Board'
+import { ArchiveDialog } from './components/ArchiveDialog'
 import { CommandDeck } from './components/CommandDeck'
 import { DemoBanner } from './components/DemoBanner'
 import { RecoveryDialog } from './components/RecoveryDialog'
@@ -48,7 +49,7 @@ import {
   type ProjectStats,
 } from './lib/board'
 import { playAlarm, preloadAlarm } from './lib/alarm'
-import { nowISO } from './lib/date'
+import { nowISO, todayISO } from './lib/date'
 import { parseQuickAdd } from './lib/quickAdd'
 import { downloadBackup, EMPTY_BACKUP, parseBackup } from './lib/storage'
 import { buildTodayWorkspace } from './lib/today'
@@ -85,6 +86,7 @@ export default function App() {
   const [projectDialogId, setProjectDialogId] = useState<string | null | undefined>(undefined)
   const [helpOpen, setHelpOpen] = useState(false)
   const [recoveryOpen, setRecoveryOpen] = useState(false)
+  const [archiveOpen, setArchiveOpen] = useState(false)
   const [todayOpen, setTodayOpen] = useState(false)
   const day = useTodayDate()
   const [lastUndo, setLastUndo] = useState<TodayUndo | null>(null)
@@ -97,37 +99,55 @@ export default function App() {
   /* --------------------------------------------------------------- derived */
 
   const collapsedIds = useMemo(() => new Set(prefs.collapsedProjects), [prefs.collapsedProjects])
-  const focusedIds = useMemo(() => new Set(prefs.focusedProjects), [prefs.focusedProjects])
+  const activeProjects = useMemo(() => data.projects.filter((project) => !project.archivedAt), [data.projects])
+  const activeProjectIds = useMemo(() => new Set(activeProjects.map((project) => project.id)), [activeProjects])
+  const activeTasks = useMemo(() => data.tasks.filter((task) => activeProjectIds.has(task.projectId)), [data.tasks, activeProjectIds])
+  const archivedProjects = useMemo(
+    () => data.projects.filter((project) => project.archivedAt).sort((a, b) =>
+      b.archivedAt!.localeCompare(a.archivedAt!) || a.order - b.order),
+    [data.projects],
+  )
+  const focusedIds = useMemo(
+    () => new Set(prefs.focusedProjects.filter((id) => activeProjectIds.has(id))),
+    [prefs.focusedProjects, activeProjectIds],
+  )
   const defconSet = useMemo(() => new Set(defconFilter), [defconFilter])
 
+  useEffect(() => {
+    // Also clear stale focus after another browser archives a project.
+    if (mode !== 'loading' && focusedIds.size !== prefs.focusedProjects.length) {
+      set('focusedProjects', [...focusedIds])
+    }
+  }, [mode, focusedIds, prefs.focusedProjects, set])
+
   const sortedProjects = useMemo(
-    () => sortProjects(data.projects, prefs.laneSort),
-    [data.projects, prefs.laneSort],
+    () => sortProjects(activeProjects, prefs.laneSort),
+    [activeProjects, prefs.laneSort],
   )
 
   /** Tasks passing search and DEFCON filters. `hideDone` is a layout switch, not a filter. */
   const matching = useMemo(() => {
     const needle = query.trim().toLowerCase()
-    if (needle === '' && defconSet.size === 0) return data.tasks
-    return data.tasks.filter((task) => {
+    if (needle === '' && defconSet.size === 0) return activeTasks
+    return activeTasks.filter((task) => {
       if (defconSet.size > 0 && !defconSet.has(task.defcon)) return false
       if (needle === '') return true
       return (
         task.title.toLowerCase().includes(needle) || task.note.toLowerCase().includes(needle)
       )
     })
-  }, [data.tasks, query, defconSet])
+  }, [activeTasks, query, defconSet])
 
   const cells = useMemo(() => groupByCell(matching, prefs.taskSort), [matching, prefs.taskSort])
 
   const cellTotals = useMemo(() => {
     const totals = new Map<string, number>()
-    for (const task of data.tasks) {
+    for (const task of activeTasks) {
       const key = cellId(task.projectId, task.status)
       totals.set(key, (totals.get(key) ?? 0) + 1)
     }
     return totals
-  }, [data.tasks])
+  }, [activeTasks])
 
   const statsByProject = useMemo(() => {
     const stats = new Map<string, ProjectStats>()
@@ -176,7 +196,7 @@ export default function App() {
     let blocked = 0
     let stale = 0
     let alert: Defcon | null = null
-    for (const task of data.tasks) {
+    for (const task of activeTasks) {
       if (task.status === 'done') continue
       open += 1
       if (task.status === 'doing') doing += 1
@@ -185,46 +205,55 @@ export default function App() {
       if (alert === null || task.defcon < alert) alert = task.defcon
     }
     return { open, doing, blocked, stale, alert }
-  }, [data.tasks])
+  }, [activeTasks])
 
   const allCollapsed =
     visibleProjects.length > 0 && visibleProjects.every((project) => collapsedIds.has(project.id))
 
   const todayWorkspace = useMemo(
-    () => buildTodayWorkspace(data.tasks.filter((task) => focusedIds.size === 0 || focusedIds.has(task.projectId)), day),
-    [data.tasks, focusedIds, day],
+    () => buildTodayWorkspace(activeTasks.filter((task) => focusedIds.size === 0 || focusedIds.has(task.projectId)), day),
+    [activeTasks, focusedIds, day],
   )
   const todayTotal = todayWorkspace.planned.length + todayWorkspace.attention.length + todayWorkspace.waiting.length
 
   useEffect(() => {
-    if (prefs.focusTaskId && !data.tasks.some((task) => task.id === prefs.focusTaskId && task.status !== 'done' && task.status !== 'blocked') && mode !== 'loading') {
+    if (prefs.focusTaskId && !activeTasks.some((task) => task.id === prefs.focusTaskId && task.status !== 'done' && task.status !== 'blocked') && mode !== 'loading') {
       set('focusTaskId', null)
     }
-  }, [data.tasks, prefs.focusTaskId, mode, set])
+  }, [activeTasks, prefs.focusTaskId, mode, set])
 
 
   const selectedTask = useMemo(
-    () => (selectedId ? (data.tasks.find((task) => task.id === selectedId) ?? null) : null),
-    [selectedId, data.tasks],
+    () => (selectedId ? (activeTasks.find((task) => task.id === selectedId) ?? null) : null),
+    [selectedId, activeTasks],
   )
   const dialogTask = useMemo(
-    () => (taskDialogId ? (data.tasks.find((task) => task.id === taskDialogId) ?? null) : null),
-    [taskDialogId, data.tasks],
+    () => (taskDialogId ? (activeTasks.find((task) => task.id === taskDialogId) ?? null) : null),
+    [taskDialogId, activeTasks],
   )
   const dialogProject = useMemo(
-    () => (projectDialogId ? (data.projects.find((p) => p.id === projectDialogId) ?? null) : null),
-    [projectDialogId, data.projects],
+    () => (projectDialogId ? (activeProjects.find((p) => p.id === projectDialogId) ?? null) : null),
+    [projectDialogId, activeProjects],
   )
   const activeTask = useMemo(
-    () => (activeId ? (data.tasks.find((task) => task.id === activeId) ?? null) : null),
-    [activeId, data.tasks],
+    () => (activeId ? (activeTasks.find((task) => task.id === activeId) ?? null) : null),
+    [activeId, activeTasks],
   )
+
+  useEffect(() => {
+    if (mode === 'loading') return
+    // A conflict response can archive a project even while its editor is open.
+    // Forget the editor, so restoring the project cannot reopen it behind the archive.
+    if (taskDialogId && !dialogTask) setTaskDialogId(null)
+    if (projectDialogId && !dialogProject) setProjectDialogId(undefined)
+    if (selectedId && !selectedTask) setSelectedId(null)
+  }, [mode, taskDialogId, dialogTask, projectDialogId, dialogProject, selectedId, selectedTask])
 
   /** Drag handlers need the rendered order, which filters can differ from. */
   const cellsRef = useRef(cells)
   cellsRef.current = cells
 
-  const dialogOpen = taskDialogId !== null || projectDialogId !== undefined || helpOpen || recoveryOpen
+  const dialogOpen = dialogTask !== null || projectDialogId === null || dialogProject !== null || helpOpen || recoveryOpen || archiveOpen
 
   useEffect(() => {
     board.setSyncPaused(dialogOpen || activeId !== null || quickAddCell !== null)
@@ -282,6 +311,8 @@ export default function App() {
         const edits = expectedUndo ? todayUndoPatch(task, expectedUndo) : patch
         if (!edits) return current
         const nextProject = edits.projectId ?? task.projectId
+        if (!current.projects.some((project) => project.id === task.projectId && !project.archivedAt) ||
+            !current.projects.some((project) => project.id === nextProject && !project.archivedAt)) return current
         const nextStatus = edits.status ?? task.status
         const moved = nextProject !== task.projectId || nextStatus !== task.status
         const tasks = moved ? moveTaskBefore(current.tasks, id, nextProject, nextStatus, null) : current.tasks
@@ -374,6 +405,27 @@ export default function App() {
     }))
   }, [board, projectDialogId])
 
+  const archiveProject = useCallback(() => {
+    if (!projectDialogId) return
+    const archivedAt = todayISO()
+    board.update((current) => ({
+      ...current,
+      projects: current.projects.map((project) =>
+        project.id === projectDialogId ? { ...project, archivedAt } : project),
+    }))
+    setSelectedId(null)
+    setQuickAddCell(null)
+    setLastUndo(null)
+    setTodayMessage(null)
+  }, [board, projectDialogId])
+
+  const restoreProject = useCallback((id: string) => {
+    board.update((current) => ({
+      ...current,
+      projects: current.projects.map((project) => project.id === id ? { ...project, archivedAt: null } : project),
+    }))
+  }, [board])
+
   const moveProject = useCallback(
     (projectId: string, delta: number) => {
       board.update((current) => ({
@@ -386,10 +438,10 @@ export default function App() {
 
   const toggleAllCollapsed = useCallback(() => {
     setAllCollapsed(
-      data.projects.map((project) => project.id),
+      activeProjects.map((project) => project.id),
       !allCollapsed,
     )
-  }, [setAllCollapsed, data.projects, allCollapsed])
+  }, [setAllCollapsed, activeProjects, allCollapsed])
 
   const toggleDefcon = useCallback((level: Defcon) => {
     setDefconFilter((current) =>
@@ -660,7 +712,7 @@ export default function App() {
 
   /* ------------------------------------------------------------------ view */
 
-  const showEmptyState = mode !== 'loading' && data.projects.length === 0
+  const showEmptyState = mode !== 'loading' && activeProjects.length === 0
 
   const notice = board.notice
   const noticeText =
@@ -703,6 +755,8 @@ export default function App() {
           onImport={() => importRef.current?.click()}
           onRecovery={() => setRecoveryOpen(true)}
           onHelp={() => setHelpOpen(true)}
+          archiveCount={archivedProjects.length}
+          onArchive={() => setArchiveOpen(true)}
         />
 
         {board.notice && (
@@ -752,14 +806,14 @@ export default function App() {
           <div className="board-empty">
             <div className="board-empty-inner">
               <h2>Defcon 1</h2>
-              <p>{t.empty.intro}</p>
+              <p>{archivedProjects.length > 0 ? t.archive.allArchived : t.empty.intro}</p>
               <div className="empty-actions">
                 <button
                   type="button"
                   className="btn primary"
                   onClick={() => setProjectDialogId(null)}
                 >
-                  {t.empty.firstProject}
+                  {archivedProjects.length > 0 ? t.archive.newProject : t.empty.firstProject}
                 </button>
                 <button type="button" className="btn" onClick={loadDemo}>
                   {t.empty.loadDemo}
@@ -773,7 +827,7 @@ export default function App() {
         ) : todayOpen ? (
           <div className="board-scroll">
             <TodayView
-              tasks={data.tasks}
+              tasks={activeTasks}
               projects={sortedProjects}
               focusedIds={focusedIds}
               day={day}
@@ -845,13 +899,25 @@ export default function App() {
           />
         )}
 
-        {projectDialogId !== undefined && (
+        {(projectDialogId === null || dialogProject !== null) && (
           <ProjectDialog
             project={dialogProject}
             taskCount={dialogProject ? (statsByProject.get(dialogProject.id)?.total ?? 0) : 0}
+            openTaskCount={dialogProject ? (statsByProject.get(dialogProject.id)?.open ?? 0) : 0}
+            onArchive={archiveProject}
             onSave={saveProject}
             onDelete={deleteProject}
             onClose={() => setProjectDialogId(undefined)}
+          />
+        )}
+
+        {archiveOpen && (
+          <ArchiveDialog
+            projects={archivedProjects}
+            tasks={data.tasks}
+            statsByProject={statsByProject}
+            onRestore={restoreProject}
+            onClose={() => setArchiveOpen(false)}
           />
         )}
 

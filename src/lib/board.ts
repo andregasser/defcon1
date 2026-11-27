@@ -197,6 +197,7 @@ export function createProject(name: string, order: number, colorSeed = order): P
     description: '',
     color: PROJECT_COLORS[colorSeed % PROJECT_COLORS.length],
     deadline: null,
+    archivedAt: null,
     order,
   }
 }
@@ -294,16 +295,18 @@ export function sortProjects(projects: Project[], mode: LaneSort): Project[] {
   })
 }
 
-/** Moves a project `delta` steps in the manual order and renumbers. */
+/** Moves among active lanes, keeping archived projects in their saved slots. */
 export function reorderProject(projects: Project[], projectId: string, delta: number): Project[] {
   const sorted = [...projects].sort((a, b) => a.order - b.order)
-  const from = sorted.findIndex((p) => p.id === projectId)
+  const active = sorted.filter((p) => !p.archivedAt)
+  const from = active.findIndex((p) => p.id === projectId)
   if (from < 0) return projects
-  const to = Math.max(0, Math.min(sorted.length - 1, from + delta))
+  const to = Math.max(0, Math.min(active.length - 1, from + delta))
   if (to === from) return projects
-  const [moved] = sorted.splice(from, 1)
-  sorted.splice(to, 0, moved)
-  const orders = new Map(sorted.map((p, i) => [p.id, i]))
+  const [moved] = active.splice(from, 1)
+  active.splice(to, 0, moved)
+  let nextActive = 0
+  const orders = new Map(sorted.map((p, i) => [p.archivedAt ? p.id : active[nextActive++].id, i]))
   return projects.map((p) => {
     const order = orders.get(p.id)
     return order === undefined || order === p.order ? p : { ...p, order }

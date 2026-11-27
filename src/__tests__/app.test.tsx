@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import assert from 'node:assert/strict'
 import { afterEach, beforeEach, describe, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import App from '../App'
@@ -598,6 +598,143 @@ async function renderTodayWorkspace() {
   return { user, first, second, waiting }
 }
 
+describe('Project archive', () => {
+  it.each(['task', 'project'] as const)('does not reopen a stale %s editor after a remote archive conflict and restoration', async (editor) => {
+    const project = createProject('Remote project', 0)
+    const task = createTask(project.id, 'todo', 'Remote task', 0)
+    const data = { projects: [project], tasks: [task] }
+    let resolveConflict: ((response: Response) => void) | undefined
+    let firstWrite = true
+    vi.stubGlobal('fetch', vi.fn((_url: string, options?: RequestInit) => {
+      if (options?.method === 'PUT' && firstWrite) {
+        firstWrite = false
+        return new Promise<Response>((resolve) => { resolveConflict = resolve })
+      }
+      return Promise.resolve(new Response(JSON.stringify({ rev: 1, data })))
+    }))
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText(task.title)
+    await user.click(cardByTitle(task.title))
+    await user.keyboard('3')
+    if (editor === 'task') await user.dblClick(cardByTitle(task.title))
+    else await user.click(screen.getByTitle('Projekt bearbeiten'))
+    await waitFor(() => assert.ok(resolveConflict))
+    await act(async () => resolveConflict?.(new Response(JSON.stringify({
+      rev: 2, data: { ...data, projects: [{ ...project, archivedAt: '2026-11-27' }] },
+    }), { status: 409 })))
+    assert.equal(screen.queryAllByRole('dialog').length, 0)
+    await user.click(screen.getByRole('button', { name: /^Archiv/ }))
+    const archive = screen.getByRole('dialog', { name: 'Archiv' })
+    await user.click(within(archive).getByRole('button', { name: project.name }))
+    await user.click(within(archive).getByRole('button', { name: 'Wiederherstellen' }))
+    assert.deepEqual(screen.getAllByRole('dialog').map((dialog) => dialog.getAttribute('aria-label')), ['Archiv'])
+    await user.click(within(archive).getByRole('button', { name: 'Schliessen' }))
+    assert.equal(screen.queryAllByRole('dialog').length, 0)
+  })
+
+  it('archives a focused project, keeps its full history readable and restores every task unchanged', async () => {
+    const finished = createProject('Finished project', 0)
+    finished.description = 'Project history'
+    const active = createProject('Active project', 1)
+    const urgent = createTask(finished.id, 'blocked', 'Archived urgent task', 0, { defcon: 1, due: '2026-01-01' })
+    urgent.note = 'Important handover note'
+    urgent.plannedFor = todayISO()
+    urgent.reviewOn = todayISO()
+    urgent.blockedReason = 'Waiting for final approval'
+    urgent.checklist = [{ id: 'step1', text: 'Verified delivery', done: true }, { id: 'step2', text: 'Optional follow-up', done: false }]
+    const done = createTask(finished.id, 'done', 'Delivered task', 0)
+    const activeTask = createTask(active.id, 'todo', 'Active task', 0)
+    const tasks = [urgent, done, activeTask]
+    localStorage.setItem(LOCAL_DATA_KEY, JSON.stringify({ projects: [finished, active], tasks }))
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ lang: 'de', focusedProjects: [finished.id], focusTaskId: urgent.id }))
+    const user = userEvent.setup()
+    const view = render(<App />)
+    await screen.findByText(urgent.title)
+    await user.click(cardByTitle(urgent.title))
+    await user.click(screen.getByTitle('Projekt bearbeiten'))
+    const edit = screen.getByRole('dialog', { name: 'Projekt bearbeiten' })
+    assert.ok(within(edit).getByText('1 Aufgabe ist noch offen. Ihr Status bleibt erhalten.'))
+    await user.click(within(edit).getByRole('button', { name: 'Archivieren' }))
+    assert.deepEqual(laneNames(), ['Active project'])
+    assert.equal(screen.queryByText(finished.name), null)
+    assert.equal(screen.queryByText(urgent.title), null)
+    assert.equal(screen.queryByTitle(/^Dringendste offene Task: DEFCON 1/)?.textContent ?? null, null)
+    assert.ok(screen.getByText('1 offen · 0 laufen · 0 blockiert'))
+    assert.equal(JSON.parse(localStorage.getItem(PREFS_KEY)!).focusTaskId, null)
+    assert.deepEqual(JSON.parse(localStorage.getItem(PREFS_KEY)!).focusedProjects, [])
+    await user.keyboard('5')
+    await user.click(screen.getByRole('button', { name: /^Heute/ }))
+    assert.equal(screen.queryByText(urgent.title), null)
+    assert.equal(screen.queryByText(finished.name), null)
+
+    // Flush and reload through the real persistence path before inspecting the archive.
+    fireEvent(window, new Event('pagehide'))
+    const saved = JSON.parse(localStorage.getItem(LOCAL_DATA_KEY)!)
+    assert.deepEqual(saved.tasks, tasks)
+    assert.equal(saved.projects[0].archivedAt, todayISO())
+    view.unmount()
+    render(<App />)
+    await screen.findByText('Active task')
+    await user.click(screen.getByRole('button', { name: /^Archiv/ }))
+    const archive = screen.getByRole('dialog', { name: 'Archiv' })
+    await user.click(within(archive).getByRole('button', { name: finished.name }))
+    for (const text of [finished.description, urgent.title, urgent.note, urgent.blockedReason, 'Verified delivery', 'Optional follow-up', done.title]) {
+      assert.ok(within(archive).getByText(text))
+    }
+    assert.equal(within(archive).queryByRole('textbox'), null)
+    assert.equal(within(archive).queryByRole('checkbox'), null)
+    await user.keyboard('p5')
+    assert.equal(screen.getAllByRole('dialog').length, 1)
+    await user.click(within(archive).getByRole('button', { name: 'Wiederherstellen' }))
+    await user.click(within(archive).getByRole('button', { name: 'Schliessen' }))
+    assert.ok(laneNames().includes(finished.name))
+    assert.ok(screen.getByText(urgent.title))
+    fireEvent(window, new Event('pagehide'))
+    const restored = JSON.parse(localStorage.getItem(LOCAL_DATA_KEY)!)
+    assert.deepEqual(restored.tasks, tasks)
+    assert.deepEqual(restored.projects, [finished, active])
+    assert.equal(alarm.mock.calls.length, 0)
+  })
+
+  it('keeps an all-archived board recoverable and allows creating a new project', async () => {
+    const archived = { ...createProject('Archived only project', 0), archivedAt: '2026-11-27' }
+    localStorage.setItem(LOCAL_DATA_KEY, JSON.stringify({ projects: [archived], tasks: [] }))
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText('Alle Projekte sind archiviert. Du kannst sie im Archiv nachlesen oder wiederherstellen.')
+    await user.click(screen.getByRole('button', { name: /^Archiv/ }))
+    const archive = screen.getByRole('dialog', { name: 'Archiv' })
+    await user.click(within(archive).getByRole('button', { name: archived.name }))
+    assert.ok(within(archive).getByText('Dieses Projekt hat keine Aufgaben.'))
+    await user.keyboard('{Escape}')
+    await user.click(screen.getByRole('button', { name: 'Neues Projekt anlegen' }))
+    await user.type(screen.getByLabelText('Projektname'), 'Next project')
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }))
+    assert.deepEqual(laneNames(), ['Next project'])
+  })
+
+  it('ignores archived focus preferences and excludes archived destinations from task editing', async () => {
+    const archived = { ...createProject('Old project', 0), archivedAt: '2026-11-27' }
+    const active = createProject('Current project', 1)
+    const old = createTask(archived.id, 'doing', 'Hidden task', 0, { defcon: 1, due: todayISO() })
+    const current = createTask(active.id, 'todo', 'Current task', 0, { due: todayISO() })
+    localStorage.setItem(LOCAL_DATA_KEY, JSON.stringify({ projects: [archived, active], tasks: [old, current] }))
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ lang: 'de', focusedProjects: [archived.id], focusTaskId: old.id }))
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText('Current task')
+    assert.deepEqual(laneNames(), ['Current project'])
+    await user.dblClick(cardByTitle('Current task'))
+    assert.deepEqual(within(screen.getByLabelText('Projekt')).getAllByRole('option').map((option) => option.textContent), ['Current project'])
+    await user.keyboard('{Escape}')
+    await user.click(screen.getByRole('button', { name: /^Heute/ }))
+    assert.ok(screen.getByRole('article', { name: 'Current task' }))
+    assert.equal(screen.queryByText('Hidden task'), null)
+    assert.equal(screen.queryByText('Old project'), null)
+  })
+})
+
 describe('Today workspace', () => {
   it('offers the next primary action for pending, focused, doing, blocked and done tasks', async () => {
     const { user } = await renderTodayWorkspace()
@@ -801,7 +938,7 @@ describe('day transition', () => {
   })
 
   it('accepts a valid chosen date, rejects an invalid one, and removes an earlier plan', async () => {
-    const { user, earlier } = await renderDayPlanning()
+    const { user, earlier, tomorrow } = await renderDayPlanning()
     await user.click(screen.getByRole('tab', { name: 'Frühere Pläne' }))
     const row = screen.getByRole('article', { name: 'Waiting for access' })
     await user.click(within(row).getByRole('button', { name: 'Mehr Aktionen' }))
@@ -809,11 +946,11 @@ describe('day transition', () => {
     fireEvent.change(date, { target: { value: '2026-02-31' } })
     await user.click(within(row).getByRole('button', { name: 'Datum übernehmen' }))
     assert.ok(screen.getByText('Bitte ein gültiges Datum wählen.'))
-    fireEvent.change(date, { target: { value: '2026-11-02' } })
+    fireEvent.change(date, { target: { value: tomorrow } })
     await user.click(within(row).getByRole('button', { name: 'Datum übernehmen' }))
     await waitFor(() => {
       const saved = JSON.parse(localStorage.getItem(LOCAL_DATA_KEY)!)
-      assert.equal(saved.tasks.find((item: { id: string }) => item.id === earlier.id).plannedFor, '2026-11-02')
+      assert.equal(saved.tasks.find((item: { id: string }) => item.id === earlier.id).plannedFor, tomorrow)
     })
     await user.click(screen.getByRole('button', { name: 'Rückgängig' }))
     const restored = screen.getByRole('article', { name: 'Waiting for access' })

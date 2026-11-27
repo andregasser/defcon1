@@ -99,6 +99,7 @@ export function normalizeData(raw: unknown): BoardData {
       description: asString(project.description),
       color: asString(project.color) || PROJECT_COLORS[index % PROJECT_COLORS.length],
       deadline: asDate(project.deadline),
+      archivedAt: asCalendarDate(project.archivedAt),
       order: Number.isFinite(project.order) ? Number(project.order) : index,
     })
   })

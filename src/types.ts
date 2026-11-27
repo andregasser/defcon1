@@ -14,6 +14,8 @@ export interface Project {
   color: string
   /** Local date, ISO `yyyy-mm-dd`. */
   deadline: string | null
+  /** Local archive date, ISO `yyyy-mm-dd`; null keeps the project active. */
+  archivedAt: string | null
   /** Rank in the manual lane order. */
   order: number
 }

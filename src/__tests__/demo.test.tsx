@@ -13,7 +13,7 @@ import { loadPrefs, savePrefs } from '../lib/storage'
 const demoKey = 'defcon1.demo.data.v1'
 const demoPrefsKey = 'defcon1.demo.prefs.v1'
 const savedBoard = {
-  projects: [{ id: 'saved', name: 'My experiment', description: '', color: '#0a84ff', deadline: null, order: 0 }],
+  projects: [{ id: 'saved', name: 'My experiment', description: '', color: '#0a84ff', deadline: null, archivedAt: null, order: 0 }],
   tasks: [],
 }
 

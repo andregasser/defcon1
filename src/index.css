@@ -1447,6 +1447,59 @@ select {
   border-top: 1px solid var(--line-1);
 }
 
+.project-archive {
+  border-top: 1px solid var(--line-1);
+  padding-top: 14px;
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  color: var(--fg-1);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.project-archive p { margin: 0; }
+.archive-body { overflow-wrap: anywhere; line-height: 1.5; }
+.archive-body h2 { font-size: 20px; margin: 0; }
+.archive-body p { margin: 0; }
+.archive-meta { color: var(--fg-1); font-size: 12px; }
+.archive-message:empty { display: none; }
+.archive-message { color: var(--green); }
+.archive-back { align-self: flex-start; }
+.archive-list, .archive-checklist { margin: 0; padding: 0; list-style: none; }
+.archive-list { display: grid; gap: 10px; }
+.archive-list > li { min-width: 0; border-left: 3px solid var(--project-color); }
+.archive-project {
+  display: grid;
+  gap: 3px;
+  padding: 12px;
+  width: 100%;
+  text-align: left;
+  background: var(--bg-2);
+  border: 1px solid var(--line-1);
+  border-left: 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  color: var(--fg-0);
+  font: inherit;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.archive-project:hover { background: var(--bg-3); }
+.archive-name { font-weight: 600; }
+.archive-section { display: grid; gap: 10px; }
+.archive-section h3 { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; font-size: 13px; }
+.archive-task { display: grid; gap: 10px; min-width: 0; padding: 12px; border: 1px solid var(--line-1); border-radius: var(--radius); background: var(--bg-2); }
+.archive-task-head { display: flex; align-items: flex-start; gap: 8px; }
+.archive-task h4 { min-width: 0; margin: 0; font-size: 14px; }
+.archive-task h5 { margin: 0 0 4px; font-size: 12px; color: var(--fg-1); }
+.archive-text { white-space: pre-wrap; font-size: 13px; }
+.archive-dates { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 0; font-size: 12px; }
+.archive-dates:empty { display: none; }
+.archive-dates dt { color: var(--fg-1); }
+.archive-dates dd { margin: 0; }
+.archive-checklist { display: grid; gap: 5px; font-size: 13px; }
+.archive-checklist li { display: flex; align-items: flex-start; gap: 8px; }
+
 .field {
   display: flex;
   flex-direction: column;

@@ -28,7 +28,7 @@ const local = vi.mocked(loadLocalData)
 const POLL_MS = 4000 + 100
 
 function project(name: string): Project {
-  return { id: `p_${name}`, name, description: '', color: '#0a84ff', deadline: null, order: 0 }
+  return { id: `p_${name}`, name, description: '', color: '#0a84ff', deadline: null, archivedAt: null, order: 0 }
 }
 
 function board(name: string): BoardData {
