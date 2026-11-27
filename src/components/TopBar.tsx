@@ -44,6 +44,8 @@ interface Props {
   onImport: () => void
   onRecovery: () => void
   onHelp: () => void
+  archiveCount: number
+  onArchive: () => void
 }
 
 export function TopBar({
@@ -75,6 +77,8 @@ export function TopBar({
   onImport,
   onRecovery,
   onHelp,
+  archiveCount,
+  onArchive,
 }: Props) {
   const t = useT()
   const [optionsOpen, setOptionsOpen] = useState(false)
@@ -147,6 +151,9 @@ export function TopBar({
           {t.topbar.saveSuffix[saveState]}
         </span>
 
+        <button type="button" className="btn sm" onClick={onArchive} title={t.archive.openTitle}>
+          {t.archive.title}{archiveCount > 0 && <b>{archiveCount}</b>}
+        </button>
         <button type="button" className="btn sm" onClick={onExport} title={t.topbar.exportTitle}>
           {t.topbar.export}
         </button>

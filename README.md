@@ -108,6 +108,20 @@ several to work across them.
 
 ![Three project tiles with deadline countdowns, completion bars and task counters.](docs/images/project-overview.png)
 
+### Archive finished projects
+
+Choose **Archive project** in the project dialog to put a project away with all
+its tasks. Archived work disappears from the board, project overview, Today,
+search and live counters, including the global DEFCON indicator. Open tasks keep
+their statuses; archiving never marks them done.
+
+Open **Archive** in the toolbar to read project descriptions, task notes,
+checklists and dates, or **Restore** a project to continue working on it.
+Priorities, task statuses, dates and manual task order stay intact. Archived
+projects remain in the same board file, JSON exports and server backups.
+Existing boards load as active automatically. After updating, reload all open
+clients before editing; older clients do not preserve the archive field.
+
 ### A deliberate daily plan
 
 Open **Today** with <kbd>t</kbd>, then **Choose tasks** or **Plan for today** to

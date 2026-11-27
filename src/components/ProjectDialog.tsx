@@ -10,6 +10,8 @@ interface Props {
   project: Project | null
   /** Number of tasks in the project, shown before deleting. */
   taskCount: number
+  openTaskCount: number
+  onArchive: () => void
   onSave: (values: {
     name: string
     description: string
@@ -25,7 +27,7 @@ function shiftedToday(days: number): string {
   return todayISO(new Date(now.getFullYear(), now.getMonth(), now.getDate() + days))
 }
 
-export function ProjectDialog({ project, taskCount, onSave, onDelete, onClose }: Props) {
+export function ProjectDialog({ project, taskCount, openTaskCount, onArchive, onSave, onDelete, onClose }: Props) {
   const t = useT()
   const [name, setName] = useState(project?.name ?? '')
   const [description, setDescription] = useState(project?.description ?? '')
@@ -162,6 +164,15 @@ export function ProjectDialog({ project, taskCount, onSave, onDelete, onClose }:
             ))}
           </div>
         </div>
+        {project && (
+          <div className="project-archive">
+            <p>{t.archive.hint}</p>
+            {openTaskCount > 0 && <p>{t.archive.openTasks(openTaskCount)}</p>}
+            <button type="button" className="btn" onClick={() => { onArchive(); onClose() }}>
+              {t.archive.action}
+            </button>
+          </div>
+        )}
       </div>
     </Dialog>
   )

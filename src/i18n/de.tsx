@@ -327,6 +327,28 @@ export const de = {
     confirmEmpty: 'Wirklich löschen?',
   },
 
+  archive: {
+    title: 'Archiv',
+    openTitle: 'Archivierte Projekte nachlesen und wiederherstellen',
+    action: 'Archivieren',
+    restore: 'Wiederherstellen',
+    back: 'Zur Archivübersicht',
+    hint: 'Blendet das Projekt samt Aufgaben aus dem Arbeitsbereich aus. Alles bleibt im Archiv erhalten und kann wiederhergestellt werden.',
+    openTasks: (count: number) => count === 1
+      ? '1 Aufgabe ist noch offen. Ihr Status bleibt erhalten.'
+      : `${count} Aufgaben sind noch offen. Ihr Status bleibt erhalten.`,
+    intro: 'Abgelegte Projekte bleiben hier lesbar. Stelle ein Projekt wieder her, um weiter daran zu arbeiten.',
+    empty: 'Noch keine archivierten Projekte.',
+    noTasks: 'Dieses Projekt hat keine Aufgaben.',
+    archivedOn: (date: string) => `Archiviert am ${date}`,
+    taskCount: (count: number) => `${count} ${count === 1 ? 'Aufgabe' : 'Aufgaben'}`,
+    restored: (name: string) => `„${name}“ wurde wiederhergestellt.`,
+    stepDone: 'Schritt erledigt',
+    stepOpen: 'Schritt offen',
+    allArchived: 'Alle Projekte sind archiviert. Du kannst sie im Archiv nachlesen oder wiederherstellen.',
+    newProject: 'Neues Projekt anlegen',
+  },
+
   dialog: {
     closeTitle: 'Schliessen (Esc)',
   },

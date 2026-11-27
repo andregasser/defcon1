@@ -72,7 +72,7 @@ function aged(
 }
 
 function project(id: string, order: number, deadline: string | null = null): Project {
-  return { id, name: id, description: '', color: '#0a84ff', deadline, order }
+  return { id, name: id, description: '', color: '#0a84ff', deadline, archivedAt: null, order }
 }
 
 /** Ids of a cell, in stored order. */
@@ -450,6 +450,15 @@ describe('sortProjects', () => {
 })
 
 describe('reorderProject', () => {
+  it('moves across archived lanes without moving their saved positions', () => {
+    const projects = [project('a', 0), { ...project('archive', 1), archivedAt: '2026-11-27' }, project('b', 2)]
+    const moved = reorderProject(projects, 'b', -1)
+    assert.deepEqual(sortProjects(moved, 'manual').map((p) => p.id), ['b', 'archive', 'a'])
+    assert.equal(moved[1], projects[1])
+    assert.deepEqual(projects.map((p) => p.order), [0, 1, 2])
+    assert.equal(reorderProject(projects, 'archive', -1), projects)
+  })
+
   const projects = [project('a', 0), project('b', 1), project('c', 2)]
 
   it('moves up and down, renumbering densely', () => {
@@ -825,6 +834,16 @@ describe('text on the board is never truncated', () => {
 /* ------------------------------------------------------------- normalisation */
 
 describe('normalizeData', () => {
+  it('loads older projects as active and validates archive dates', () => {
+    const result = normalizeData({ projects: [
+      { id: 'old' },
+      { id: 'archived', archivedAt: '2026-11-27' },
+      { id: 'invalid', archivedAt: '2026-02-30' },
+      { id: 'malformed', archivedAt: true },
+    ] })
+    assert.deepEqual(result.projects.map((p) => p.archivedAt), [null, '2026-11-27', null, null])
+  })
+
   it('survives complete garbage', () => {
     assert.deepEqual(normalizeData(null), { projects: [], tasks: [] })
     assert.deepEqual(normalizeData({ projects: 'nope', tasks: 42 }), { projects: [], tasks: [] })
@@ -913,6 +932,17 @@ describe('normalizeData', () => {
 })
 
 describe('parseBackup', () => {
+  it('preserves archived projects and all their task data in wrapped and bare backups', () => {
+    const data = { projects: [{ ...project('p1', 0), archivedAt: '2026-11-27' }], tasks: [
+      { ...task('t1', 'p1', 'blocked', 0, 1), note: 'Keep this note', due: '2026-11-01',
+        plannedFor: '2026-11-02', reviewOn: '2026-11-03', blockedReason: 'Waiting for approval',
+        checklist: [{ id: 'step', text: 'Keep this step', done: true }] },
+      { ...task('t2', 'p1', 'done', 0), doneAt: '2026-11-20T12:00:00.000Z' },
+    ] }
+    assert.deepEqual(parseBackup(JSON.stringify({ app: 'defcon1', version: 1, data })), data)
+    assert.deepEqual(parseBackup(JSON.stringify(data)), data)
+  })
+
   const board = { projects: [{ id: 'p1', name: 'A' }], tasks: [] }
 
   it('accepts a wrapped export file', () => {

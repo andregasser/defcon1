@@ -314,6 +314,28 @@ export const en: Dict = {
     confirmEmpty: 'Really delete?',
   },
 
+  archive: {
+    title: 'Archive',
+    openTitle: 'Read and restore archived projects',
+    action: 'Archive project',
+    restore: 'Restore',
+    back: 'Back to archive',
+    hint: 'Hides the project and its tasks from the workspace. Everything stays in the archive and can be restored.',
+    openTasks: (count: number) => count === 1
+      ? '1 task is still open. Its status will be preserved.'
+      : `${count} tasks are still open. Their statuses will be preserved.`,
+    intro: 'Archived projects remain readable here. Restore a project to continue working on it.',
+    empty: 'No archived projects yet.',
+    noTasks: 'This project has no tasks.',
+    archivedOn: (date: string) => `Archived on ${date}`,
+    taskCount: (count: number) => `${count} ${count === 1 ? 'task' : 'tasks'}`,
+    restored: (name: string) => `“${name}” has been restored.`,
+    stepDone: 'Step completed',
+    stepOpen: 'Step open',
+    allArchived: 'All projects are archived. Open the archive to read or restore them.',
+    newProject: 'Create a new project',
+  },
+
   dialog: {
     closeTitle: 'Close (Esc)',
   },

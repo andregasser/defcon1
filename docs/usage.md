@@ -16,6 +16,28 @@ Below it, the board keeps ten lanes readable: sticky column headers, a sticky
 lane rail, capped cell height so one overloaded project cannot push the others
 off screen, and collapsible lanes that leave a summary line behind.
 
+## Archive and restore projects
+
+Open a project's edit dialog and choose **Archive project**. The dialog shows
+how many tasks are still open; archiving keeps their status and every other task
+field unchanged. The project disappears from the board, command deck, Today,
+search, project selectors and all live counters. A saved project or task focus
+cannot make archived work reappear.
+
+The toolbar's **Archive** button stays available even when every project is
+archived. Projects are listed with their archive date and task count, newest
+first. Select one to read its description and tasks, grouped by status in their
+manual order, including notes, checklist completion, due dates, planned dates
+and follow-up details. This view is read-only. **Restore** makes the project
+active again; existing view filters still apply. Original dates are preserved,
+so an old due date may show as overdue after restoration. Restoration itself
+does not sound the DEFCON alarm.
+
+Archiving is shared board data, not a per-device visibility setting. Projects
+and their tasks stay in the board file, exports and server backups. Older boards
+need no migration. Reload every open client after updating, because older
+clients do not preserve archive dates when saving.
+
 ## Idle time, because DEFCON only tells you half the story
 
 Every card remembers when it entered its current column. Sit still too long — **3
